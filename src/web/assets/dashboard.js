@@ -1,7 +1,9 @@
 document.addEventListener('alpine:init', () => {
   const MAX_UI_EVENTS = 1000;
+  const DEBUG_RENDER_DEBOUNCE_MS = 300;
 
   Alpine.data('dashboard', () => ({
+    activeTab: 'dashboard',
     connected: false,
     totalEps: 0,
     totalEvents: 0,
@@ -12,6 +14,15 @@ document.addEventListener('alpine:init', () => {
     streamSearch: {},
     streamSockets: {},
     streamFollowTail: {},
+    debugPresets: [],
+    debugPreset: 'custom',
+    debugFormat: 'template',
+    debugTemplate: '{{ timestamp }} {{ stream_name }} seq={{ sequence }} {{ message }}',
+    debugSamples: 1,
+    debugOutput: '',
+    debugError: '',
+    debugLoading: false,
+    debugRenderTimer: null,
     startedAt: new Date().toLocaleTimeString(),
     get maxEps() {
       if (this.streams.length === 0) return 1;
@@ -29,6 +40,11 @@ document.addEventListener('alpine:init', () => {
       return String(h).padStart(2, '0') + ':' +
              String(m).padStart(2, '0') + ':' +
              String(s).padStart(2, '0');
+    },
+    init() {
+      this.connect();
+      this.loadDebugPresets();
+      this.renderDebug();
     },
     connect() {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -138,6 +154,110 @@ document.addEventListener('alpine:init', () => {
         this.scrollStreamToBottom(name);
       }
     },
+    scheduleDebugRender() {
+      if (this.debugRenderTimer) {
+        clearTimeout(this.debugRenderTimer);
+      }
+
+      this.debugRenderTimer = setTimeout(() => {
+        this.renderDebug();
+      }, DEBUG_RENDER_DEBOUNCE_MS);
+    },
+    async loadDebugPresets() {
+      try {
+        const res = await fetch('/assets/debug_presets.txt');
+        if (!res.ok) {
+          return;
+        }
+
+        const text = await res.text();
+        const lines = text.split('\n');
+        const parsed = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line || line.startsWith('#')) {
+            continue;
+          }
+
+          const sep = line.indexOf('|');
+          let name;
+          let template;
+
+          if (sep === -1) {
+            name = `Preset ${parsed.length + 1}`;
+            template = line;
+          } else {
+            name = line.slice(0, sep).trim() || `Preset ${parsed.length + 1}`;
+            template = line.slice(sep + 1).trim();
+          }
+
+          if (!template) {
+            continue;
+          }
+
+          parsed.push({
+            id: `preset_${parsed.length + 1}`,
+            name,
+            template,
+          });
+        }
+
+        this.debugPresets = parsed;
+      } catch (_) {
+      }
+    },
+    applyDebugPreset() {
+      if (this.debugPreset === 'custom') {
+        return;
+      }
+
+      const preset = this.debugPresets.find((p) => p.id === this.debugPreset);
+      if (!preset) {
+        return;
+      }
+
+      this.debugFormat = 'template';
+      this.debugTemplate = preset.template;
+      this.scheduleDebugRender();
+    },
+    async renderDebug() {
+      this.debugError = '';
+      this.debugLoading = true;
+
+      const samples = Number(this.debugSamples) || 1;
+      const payload = {
+        format_type: this.debugFormat,
+        samples: Math.max(1, Math.min(20, samples)),
+      };
+
+      if (this.debugFormat === 'template') {
+        payload.template = this.debugTemplate;
+      }
+
+      try {
+        const res = await fetch('/api/debug/render', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          this.debugError = 'debug render request failed';
+          this.debugOutput = '';
+          return;
+        }
+
+        const data = await res.json();
+        this.debugError = data.error || '';
+        this.debugOutput = Array.isArray(data.output) ? data.output.join('\n') : '';
+      } catch (_) {
+        this.debugError = 'debug render request failed';
+        this.debugOutput = '';
+      } finally {
+        this.debugLoading = false;
+      }
+    },
     scrollStreamToBottom(name) {
       if (this.expandedStream !== name) {
         return;
@@ -158,6 +278,9 @@ document.addEventListener('alpine:init', () => {
       });
     },
     destroy() {
+      if (this.debugRenderTimer) {
+        clearTimeout(this.debugRenderTimer);
+      }
       for (const name of Object.keys(this.streamSockets)) {
         this.disconnectStreamSocket(name);
       }

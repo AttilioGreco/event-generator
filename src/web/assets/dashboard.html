@@ -9,7 +9,7 @@
 <script defer src="/assets/alpinejs.min.js"></script>
 </head>
 <body>
-<div class="container" x-data="dashboard" x-init="connect()">
+<div class="container" x-data="dashboard" x-init="init()">
 
   <header>
     <h1><span>&#9654;</span> event-generator</h1>
@@ -19,102 +19,158 @@
     </div>
   </header>
 
-  <div class="summary">
-    <div class="card">
-      <div class="card-label">Total EPS</div>
-      <div class="card-value accent" x-text="formatNumber(totalEps)"></div>
-      <div class="card-sub">events per second</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Total Events</div>
-      <div class="card-value green" x-text="formatNumber(totalEvents)"></div>
-      <div class="card-sub">since start</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Active Streams</div>
-      <div class="card-value orange" x-text="streams.length"></div>
-      <div class="card-sub">concurrent</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Uptime</div>
-      <div class="card-value purple" x-text="formatUptime(uptimeSecs)"></div>
-      <div class="card-sub" x-text="'since ' + startedAt"></div>
-    </div>
+  <div class="top-nav">
+    <button class="nav-btn" :class="{ 'active': activeTab === 'dashboard' }" @click="activeTab = 'dashboard'">Dashboard</button>
+    <button class="nav-btn" :class="{ 'active': activeTab === 'debug' }" @click="activeTab = 'debug'">Debug</button>
   </div>
 
-  <div class="streams-section">
-    <h2>Streams</h2>
-    <div class="streams-table">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Destination</th>
-            <th>EPS</th>
-            <th>Activity</th>
-            <th style="text-align:right">Total Events</th>
-          </tr>
-        </thead>
-        <template x-for="s in streams" :key="s.name">
-          <tbody>
-            <tr class="stream-row" :class="{ 'expanded': expandedStream === s.name }">
-              <td>
-                <button class="stream-toggle" type="button" @click="toggleStream(s.name)">
-                  <span class="stream-chevron" :class="{ 'open': expandedStream === s.name }">&#9654;</span>
-                  <div class="stream-name">
-                    <div class="stream-dot"></div>
-                    <span x-text="s.name"></span>
-                  </div>
-                </button>
-              </td>
-              <td>
-                <div class="destination" x-text="s.destination" :title="s.destination"></div>
-              </td>
-              <td class="eps-value" x-text="formatNumber(s.eps)"></td>
-              <td>
-                <div class="eps-bar-container">
-                  <div class="eps-bar" :style="'width:' + Math.min(100, (s.eps / maxEps) * 100) + '%'"></div>
-                </div>
-              </td>
-              <td class="total-value" style="text-align:right" x-text="formatNumber(s.total)"></td>
+  <section x-show="activeTab === 'dashboard'" x-cloak>
+    <div class="summary">
+      <div class="card">
+        <div class="card-label">Total EPS</div>
+        <div class="card-value accent" x-text="formatNumber(totalEps)"></div>
+        <div class="card-sub">events per second</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Total Events</div>
+        <div class="card-value green" x-text="formatNumber(totalEvents)"></div>
+        <div class="card-sub">since start</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Active Streams</div>
+        <div class="card-value orange" x-text="streams.length"></div>
+        <div class="card-sub">concurrent</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Uptime</div>
+        <div class="card-value purple" x-text="formatUptime(uptimeSecs)"></div>
+        <div class="card-sub" x-text="'since ' + startedAt"></div>
+      </div>
+    </div>
+
+    <div class="streams-section">
+      <h2>Streams</h2>
+      <div class="streams-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Destination</th>
+              <th>EPS</th>
+              <th>Activity</th>
+              <th style="text-align:right">Total Events</th>
             </tr>
-            <tr class="stream-accordion" x-show="expandedStream === s.name" x-cloak>
-              <td colspan="5">
-                <div class="stream-live-panel">
-                  <div class="stream-live-toolbar">
-                    <input
-                      class="stream-search"
-                      type="text"
-                      placeholder="Search event..."
-                      x-model="streamSearch[s.name]"
-                    >
-                    <div class="stream-live-toolbar-right">
-                      <button
-                        class="tail-toggle"
-                        type="button"
-                        :class="{ 'active': isFollowTail(s.name) }"
-                        :title="isFollowTail(s.name) ? 'Follow tail: ON' : 'Follow tail: OFF'"
-                        @click="toggleFollowTail(s.name)"
+          </thead>
+          <template x-for="s in streams" :key="s.name">
+            <tbody>
+              <tr class="stream-row" :class="{ 'expanded': expandedStream === s.name }">
+                <td>
+                  <button class="stream-toggle" type="button" @click="toggleStream(s.name)">
+                    <span class="stream-chevron" :class="{ 'open': expandedStream === s.name }">&#9654;</span>
+                    <div class="stream-name">
+                      <div class="stream-dot"></div>
+                      <span x-text="s.name"></span>
+                    </div>
+                  </button>
+                </td>
+                <td>
+                  <div class="destination" x-text="s.destination" :title="s.destination"></div>
+                </td>
+                <td class="eps-value" x-text="formatNumber(s.eps)"></td>
+                <td>
+                  <div class="eps-bar-container">
+                    <div class="eps-bar" :style="'width:' + Math.min(100, (s.eps / maxEps) * 100) + '%'"></div>
+                  </div>
+                </td>
+                <td class="total-value" style="text-align:right" x-text="formatNumber(s.total)"></td>
+              </tr>
+              <tr class="stream-accordion" x-show="expandedStream === s.name" x-cloak>
+                <td colspan="5">
+                  <div class="stream-live-panel">
+                    <div class="stream-live-toolbar">
+                      <input
+                        class="stream-search"
+                        type="text"
+                        placeholder="Search event..."
+                        x-model="streamSearch[s.name]"
                       >
-                        <span class="tail-toggle-icon">💡</span>
-                        <span x-text="isFollowTail(s.name) ? 'Tail ON' : 'Tail OFF'"></span>
-                      </button>
-                      <div class="stream-live-meta" x-text="(streamLogs[s.name] || []).length + ' / 1000 events'"></div>
+                      <div class="stream-live-toolbar-right">
+                        <button
+                          class="tail-toggle"
+                          type="button"
+                          :class="{ 'active': isFollowTail(s.name) }"
+                          :title="isFollowTail(s.name) ? 'Follow tail: ON' : 'Follow tail: OFF'"
+                          @click="toggleFollowTail(s.name)"
+                        >
+                          <span class="tail-toggle-icon">💡</span>
+                          <span x-text="isFollowTail(s.name) ? 'Tail ON' : 'Tail OFF'"></span>
+                        </button>
+                        <div class="stream-live-meta" x-text="(streamLogs[s.name] || []).length + ' / 1000 events'"></div>
+                      </div>
+                    </div>
+                    <div class="stream-live-list" :data-stream="s.name">
+                      <template x-for="(line, idx) in filteredStreamLogs(s.name)" :key="idx">
+                        <div class="stream-live-line" x-text="line"></div>
+                      </template>
                     </div>
                   </div>
-                  <div class="stream-live-list" :data-stream="s.name">
-                    <template x-for="(line, idx) in filteredStreamLogs(s.name)" :key="idx">
-                      <div class="stream-live-line" x-text="line"></div>
-                    </template>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </template>
-      </table>
+                </td>
+              </tr>
+            </tbody>
+          </template>
+        </table>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <section class="debug-section" x-show="activeTab === 'debug'" x-cloak>
+    <h2>Template Debug</h2>
+    <div class="debug-panel">
+      <div class="debug-controls">
+        <label class="debug-label">Preset</label>
+        <select class="debug-select" x-model="debugPreset" @change="applyDebugPreset()">
+          <option value="custom">custom</option>
+          <template x-for="preset in debugPresets" :key="preset.id">
+            <option :value="preset.id" x-text="preset.name"></option>
+          </template>
+        </select>
+
+        <label class="debug-label">Format</label>
+        <select class="debug-select" x-model="debugFormat" @change="scheduleDebugRender()">
+          <option value="syslog_rfc5424">syslog_rfc5424</option>
+          <option value="syslog_rfc3164">syslog_rfc3164</option>
+          <option value="cef">cef</option>
+          <option value="leef">leef</option>
+          <option value="clf">clf</option>
+          <option value="json">json</option>
+          <option value="java_log4j">java_log4j</option>
+          <option value="java_logback">java_logback</option>
+          <option value="template">template</option>
+        </select>
+
+        <label class="debug-label">Samples</label>
+        <input class="debug-number" type="number" min="1" max="20" x-model.number="debugSamples" @input="scheduleDebugRender()">
+
+        <button class="debug-render-btn" type="button" @click="renderDebug()" :disabled="debugLoading">
+          <span x-text="debugLoading ? 'Rendering...' : 'Render'"></span>
+        </button>
+      </div>
+
+      <label class="debug-label" for="template-editor">Template</label>
+      <textarea
+        id="template-editor"
+        class="debug-editor"
+        x-model="debugTemplate"
+        @input="scheduleDebugRender()"
+        placeholder="Paste a template here..."
+      ></textarea>
+
+      <div class="debug-error" x-show="debugError" x-text="debugError"></div>
+
+      <label class="debug-label">Output Preview</label>
+      <pre class="debug-output" x-text="debugOutput"></pre>
+    </div>
+  </section>
 
   <footer>event-generator &middot; Rust &middot; stats via WebSocket</footer>
 </div>

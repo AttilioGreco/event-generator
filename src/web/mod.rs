@@ -10,15 +10,21 @@ use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, Response, StatusCode};
+use axum::Json;
 use axum::response::{Html, IntoResponse};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
+use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
+use crate::config::model::FormatConfig;
+use crate::format::{EventContext, build_formatter};
 use crate::config::model::WebConfig;
 use crate::stats::reporter::StreamStats;
+
+const DEBUG_MAX_SAMPLES: usize = 20;
 
 #[derive(Clone)]
 struct AppState {
@@ -26,6 +32,19 @@ struct AppState {
     streams_by_name: HashMap<String, Arc<StreamStats>>,
     start_time: Instant,
     auth: Option<(String, String)>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DebugRenderRequest {
+    format_type: String,
+    template: Option<String>,
+    samples: Option<usize>,
+}
+
+#[derive(Debug, Serialize)]
+struct DebugRenderResponse {
+    output: Vec<String>,
+    error: Option<String>,
 }
 
 pub async fn run_web_server(
@@ -51,6 +70,7 @@ pub async fn run_web_server(
     let app = Router::new()
         .route("/", get(index_handler))
         .route("/assets/{*path}", get(asset_handler))
+        .route("/api/debug/render", post(debug_render_handler))
         .route("/ws", get(ws_handler))
         .route("/ws/stream/{name}", get(ws_stream_handler))
         .with_state(state);
@@ -90,6 +110,7 @@ async fn asset_handler(
         "dashboard.css" => ("text/css; charset=utf-8", dashboard::CSS),
         "dashboard.js" => ("application/javascript; charset=utf-8", dashboard::JS),
         "alpinejs.min.js" => ("application/javascript; charset=utf-8", dashboard::ALPINE_JS),
+        "debug_presets.txt" => ("text/plain; charset=utf-8", dashboard::DEBUG_PRESETS),
         _ => {
             return Response::builder()
                 .status(StatusCode::NOT_FOUND)
@@ -136,6 +157,77 @@ async fn ws_stream_handler(
 
     ws.on_upgrade(move |socket| handle_ws_stream(socket, stream))
         .into_response()
+}
+
+async fn debug_render_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<DebugRenderRequest>,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    let format_type = req.format_type.trim();
+    if format_type.is_empty() {
+        return Json(DebugRenderResponse {
+            output: Vec::new(),
+            error: Some("format_type is required".into()),
+        })
+        .into_response();
+    }
+
+    let template_inline = req.template.and_then(|t| {
+        let trimmed = t.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
+
+    if format_type == "template" && template_inline.is_none() {
+        return Json(DebugRenderResponse {
+            output: Vec::new(),
+            error: Some("template content is required for type=template".into()),
+        })
+        .into_response();
+    }
+
+    let config = FormatConfig {
+        format_type: format_type.to_string(),
+        facility: None,
+        severity: None,
+        app_name: None,
+        vendor: None,
+        product: None,
+        version: None,
+        device_event_class_id: None,
+        extra_fields: None,
+        template_file: None,
+        template_inline,
+    };
+
+    let formatter = match build_formatter(&config) {
+        Ok(f) => f,
+        Err(e) => {
+            return Json(DebugRenderResponse {
+                output: Vec::new(),
+                error: Some(e.to_string()),
+            })
+            .into_response();
+        }
+    };
+
+    let sample_count = req.samples.unwrap_or(1).max(1).min(DEBUG_MAX_SAMPLES);
+    let mut output = Vec::with_capacity(sample_count);
+
+    for idx in 0..sample_count {
+        let ctx = EventContext::new("debug".into(), idx as u64);
+        output.push(formatter.format(&ctx));
+    }
+
+    Json(DebugRenderResponse { output, error: None }).into_response()
 }
 
 async fn handle_ws(mut socket: WebSocket, state: AppState) {
