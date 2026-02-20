@@ -83,14 +83,14 @@ impl HttpSink {
             Ok(response) => {
                 if !response.status().is_success() {
                     eprintln!(
-                        "[http://{}] server returned {}",
+                        "[{}] server returned {}",
                         self.url,
                         response.status()
                     );
                 }
             }
             Err(e) => {
-                eprintln!("[http://{}] request failed: {e}", self.url);
+                eprintln!("[{}] request failed: {e}", self.url);
             }
         }
 
