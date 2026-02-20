@@ -1,5 +1,6 @@
 mod dashboard;
 
+use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Instant;
@@ -7,7 +8,7 @@ use std::time::Instant;
 use anyhow::Result;
 use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{HeaderMap, Response, StatusCode};
 use axum::response::{Html, IntoResponse};
 use axum::routing::get;
@@ -22,6 +23,7 @@ use crate::stats::reporter::StreamStats;
 #[derive(Clone)]
 struct AppState {
     streams: Vec<Arc<StreamStats>>,
+    streams_by_name: HashMap<String, Arc<StreamStats>>,
     start_time: Instant,
     auth: Option<(String, String)>,
 }
@@ -37,6 +39,10 @@ pub async fn run_web_server(
     };
 
     let state = AppState {
+        streams_by_name: streams
+            .iter()
+            .map(|s| (s.name.clone(), Arc::clone(s)))
+            .collect(),
         streams,
         start_time: Instant::now(),
         auth,
@@ -44,7 +50,9 @@ pub async fn run_web_server(
 
     let app = Router::new()
         .route("/", get(index_handler))
+        .route("/assets/{*path}", get(asset_handler))
         .route("/ws", get(ws_handler))
+        .route("/ws/stream/{name}", get(ws_stream_handler))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(&config.listen).await?;
@@ -69,6 +77,34 @@ async fn index_handler(
     Html(dashboard::HTML).into_response()
 }
 
+async fn asset_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(path): Path<String>,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    let (content_type, body) = match path.as_str() {
+        "dashboard.css" => ("text/css; charset=utf-8", dashboard::CSS),
+        "dashboard.js" => ("application/javascript; charset=utf-8", dashboard::JS),
+        "alpinejs.min.js" => ("application/javascript; charset=utf-8", dashboard::ALPINE_JS),
+        _ => {
+            return Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Body::from("Not Found"))
+                .unwrap();
+        }
+    };
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", content_type)
+        .body(Body::from(body))
+        .unwrap()
+}
+
 async fn ws_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -78,6 +114,27 @@ async fn ws_handler(
         return resp;
     }
     ws.on_upgrade(move |socket| handle_ws(socket, state))
+        .into_response()
+}
+
+async fn ws_stream_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(name): Path<String>,
+    ws: WebSocketUpgrade,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    let Some(stream) = state.streams_by_name.get(&name).cloned() else {
+        return Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Stream not found"))
+            .unwrap();
+    };
+
+    ws.on_upgrade(move |socket| handle_ws_stream(socket, stream))
         .into_response()
 }
 
@@ -119,6 +176,47 @@ async fn handle_ws(mut socket: WebSocket, state: AppState) {
         let msg = Message::Text(payload.to_string().into());
         if socket.send(msg).await.is_err() {
             return;
+        }
+    }
+}
+
+async fn handle_ws_stream(mut socket: WebSocket, stream: Arc<StreamStats>) {
+    let snapshot = serde_json::json!({
+        "type": "snapshot",
+        "events": stream.recent_events_snapshot(),
+    });
+
+    if socket
+        .send(Message::Text(snapshot.to_string().into()))
+        .await
+        .is_err()
+    {
+        return;
+    }
+
+    let mut rx = stream.subscribe_events();
+
+    loop {
+        match rx.recv().await {
+            Ok(event) => {
+                let payload = serde_json::json!({
+                    "type": "event",
+                    "event": event,
+                });
+                if socket
+                    .send(Message::Text(payload.to_string().into()))
+                    .await
+                    .is_err()
+                {
+                    return;
+                }
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                continue;
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                return;
+            }
         }
     }
 }

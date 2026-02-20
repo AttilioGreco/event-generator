@@ -1,29 +1,67 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
+
+const MAX_RECENT_EVENTS: usize = 1000;
+const BROADCAST_CAPACITY: usize = 1024;
 
 pub struct StreamStats {
     pub name: String,
     pub destination: String,
     pub events_since_last: AtomicU64,
     pub total_events: AtomicU64,
+    recent_events: Mutex<std::collections::VecDeque<String>>,
+    event_tx: broadcast::Sender<String>,
 }
 
 impl StreamStats {
     pub fn new(name: String, destination: String) -> Self {
+        let (event_tx, _) = broadcast::channel(BROADCAST_CAPACITY);
         Self {
             name,
             destination,
             events_since_last: AtomicU64::new(0),
             total_events: AtomicU64::new(0),
+            recent_events: Mutex::new(std::collections::VecDeque::with_capacity(MAX_RECENT_EVENTS)),
+            event_tx,
         }
     }
 
     pub fn record_event(&self) {
+        self.record_event_with_payload("");
+    }
+
+    pub fn record_event_with_payload(&self, event: &str) {
         self.events_since_last.fetch_add(1, Ordering::Relaxed);
         self.total_events.fetch_add(1, Ordering::Relaxed);
+
+        if event.is_empty() {
+            return;
+        }
+
+        if let Ok(mut recent) = self.recent_events.lock() {
+            if recent.len() >= MAX_RECENT_EVENTS {
+                recent.pop_front();
+            }
+            recent.push_back(event.to_string());
+        }
+
+        let _ = self.event_tx.send(event.to_string());
+    }
+
+    pub fn recent_events_snapshot(&self) -> Vec<String> {
+        if let Ok(recent) = self.recent_events.lock() {
+            return recent.iter().cloned().collect();
+        }
+        Vec::new()
+    }
+
+    pub fn subscribe_events(&self) -> broadcast::Receiver<String> {
+        self.event_tx.subscribe()
     }
 }
 

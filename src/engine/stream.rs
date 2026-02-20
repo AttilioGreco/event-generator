@@ -37,7 +37,7 @@ pub async fn run_stream(
                     eprintln!("[{name}] send error: {e}");
                 }
 
-                stats.record_event();
+                stats.record_event_with_payload(&event);
                 sequence += 1;
             }
         }

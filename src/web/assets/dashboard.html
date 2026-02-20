@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Generator Dashboard</title>
+<link rel="stylesheet" href="/assets/dashboard.css">
+<script defer src="/assets/dashboard.js"></script>
+<script defer src="/assets/alpinejs.min.js"></script>
+</head>
+<body>
+<div class="container" x-data="dashboard" x-init="connect()">
+
+  <header>
+    <h1><span>&#9654;</span> event-generator</h1>
+    <div class="status-badge">
+      <div class="status-dot" :class="{ 'disconnected': !connected }"></div>
+      <span x-text="connected ? 'Live' : 'Disconnected'"></span>
+    </div>
+  </header>
+
+  <div class="summary">
+    <div class="card">
+      <div class="card-label">Total EPS</div>
+      <div class="card-value accent" x-text="formatNumber(totalEps)"></div>
+      <div class="card-sub">events per second</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Total Events</div>
+      <div class="card-value green" x-text="formatNumber(totalEvents)"></div>
+      <div class="card-sub">since start</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Active Streams</div>
+      <div class="card-value orange" x-text="streams.length"></div>
+      <div class="card-sub">concurrent</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Uptime</div>
+      <div class="card-value purple" x-text="formatUptime(uptimeSecs)"></div>
+      <div class="card-sub" x-text="'since ' + startedAt"></div>
+    </div>
+  </div>
+
+  <div class="streams-section">
+    <h2>Streams</h2>
+    <div class="streams-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Destination</th>
+            <th>EPS</th>
+            <th>Activity</th>
+            <th style="text-align:right">Total Events</th>
+          </tr>
+        </thead>
+        <template x-for="s in streams" :key="s.name">
+          <tbody>
+            <tr class="stream-row" :class="{ 'expanded': expandedStream === s.name }">
+              <td>
+                <button class="stream-toggle" type="button" @click="toggleStream(s.name)">
+                  <span class="stream-chevron" :class="{ 'open': expandedStream === s.name }">&#9654;</span>
+                  <div class="stream-name">
+                    <div class="stream-dot"></div>
+                    <span x-text="s.name"></span>
+                  </div>
+                </button>
+              </td>
+              <td>
+                <div class="destination" x-text="s.destination" :title="s.destination"></div>
+              </td>
+              <td class="eps-value" x-text="formatNumber(s.eps)"></td>
+              <td>
+                <div class="eps-bar-container">
+                  <div class="eps-bar" :style="'width:' + Math.min(100, (s.eps / maxEps) * 100) + '%'"></div>
+                </div>
+              </td>
+              <td class="total-value" style="text-align:right" x-text="formatNumber(s.total)"></td>
+            </tr>
+            <tr class="stream-accordion" x-show="expandedStream === s.name" x-cloak>
+              <td colspan="5">
+                <div class="stream-live-panel">
+                  <div class="stream-live-toolbar">
+                    <input
+                      class="stream-search"
+                      type="text"
+                      placeholder="Search event..."
+                      x-model="streamSearch[s.name]"
+                    >
+                    <div class="stream-live-toolbar-right">
+                      <button
+                        class="tail-toggle"
+                        type="button"
+                        :class="{ 'active': isFollowTail(s.name) }"
+                        :title="isFollowTail(s.name) ? 'Follow tail: ON' : 'Follow tail: OFF'"
+                        @click="toggleFollowTail(s.name)"
+                      >
+                        <span class="tail-toggle-icon">💡</span>
+                        <span x-text="isFollowTail(s.name) ? 'Tail ON' : 'Tail OFF'"></span>
+                      </button>
+                      <div class="stream-live-meta" x-text="(streamLogs[s.name] || []).length + ' / 1000 events'"></div>
+                    </div>
+                  </div>
+                  <div class="stream-live-list" :data-stream="s.name">
+                    <template x-for="(line, idx) in filteredStreamLogs(s.name)" :key="idx">
+                      <div class="stream-live-line" x-text="line"></div>
+                    </template>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </template>
+      </table>
+    </div>
+  </div>
+
+  <footer>event-generator &middot; Rust &middot; stats via WebSocket</footer>
+</div>
+</body>
+</html>
