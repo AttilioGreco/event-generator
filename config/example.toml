@@ -1,0 +1,55 @@
+# Event Generator - Example Configuration
+
+[defaults]
+rate = 10  # Default events per second
+
+# Stream 1: Syslog to stdout
+[[streams]]
+name = "syslog-stdout"
+enabled = true
+
+[streams.format]
+type = "syslog_rfc5424"
+facility = "local0"
+severity = "info"
+app_name = "event-generator"
+
+[streams.output]
+type = "stdout"
+
+[streams.rate]
+eps = 5
+
+# Stream 2: Syslog to file
+[[streams]]
+name = "syslog-file"
+enabled = true
+
+[streams.format]
+type = "syslog_rfc5424"
+facility = "auth"
+severity = "warning"
+app_name = "auth-service"
+
+[streams.output]
+type = "file"
+path = "/tmp/event-generator.log"
+
+[streams.rate]
+eps = 10
+
+# Stream 3: Syslog to UDP (disabled by default)
+# [[streams]]
+# name = "syslog-udp"
+# enabled = true
+#
+# [streams.format]
+# type = "syslog_rfc5424"
+#
+# [streams.output]
+# type = "udp"
+# host = "127.0.0.1"
+# port = 514
+#
+# [streams.rate]
+# eps = 100
