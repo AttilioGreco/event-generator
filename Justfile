@@ -6,10 +6,20 @@ build:
 dev:
     cargo build
 
+dev-up:
+    docker compose up --build -d
+
+dev-down:
+    docker compose down
+
 run CONFIG="config/example.toml":
     cargo run -- --config {{CONFIG}}
 
 test:
+    just test-only
+    just docker-push-test
+
+test-only:
     cargo test
 
 lint:
@@ -34,6 +44,13 @@ release-check:
 
 docker-build:
     docker build -t event-generator .
+
+docker-build-test TEST_IMAGE="localhost:5000/event-generator:test":
+    docker build -t {{TEST_IMAGE}} .
+
+docker-push-test TEST_IMAGE="localhost:5000/event-generator:test":
+    just docker-build-test TEST_IMAGE={{TEST_IMAGE}}
+    docker push {{TEST_IMAGE}}
 
 docker-build-debug:
     docker build --platform linux/amd64 -t event-generator-debug:latest .

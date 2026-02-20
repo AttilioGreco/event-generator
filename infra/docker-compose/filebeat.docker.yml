@@ -1,0 +1,22 @@
+filebeat.inputs:
+      # - type: syslog
+      #   format: rfc5424
+      #   protocol.tcp:
+      #         host: "0.0.0.0:9000"
+
+      # - type: syslog
+      #   format: rfc5424
+      #   protocol.udp:
+      #         host: "0.0.0.0:9000"
+
+      - type: http_endpoint
+        enabled: true
+        listen_address: "0.0.0.0"
+        listen_port: 9080
+        response_code: 200
+        response_body: '{"message": "success"}'
+        url: "/"
+        prefix: "json"
+
+output.console:
+      pretty: true

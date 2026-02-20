@@ -1,0 +1,85 @@
+# Event Generator - Debugging system with filebeat
+
+# ─── Available format types ───
+# syslog_rfc5424  - RFC 5424 structured syslog
+# syslog_rfc3164  - RFC 3164 BSD syslog
+# cef             - ArcSight Common Event Format
+# leef            - IBM QRadar Log Event Extended Format
+# clf             - Common Log Format (NCSA combined)
+# json            - JSON structured log
+# java_log4j      - Java Log4j pattern
+# java_logback    - Java Logback pattern
+# template        - Custom Tera template (template_file or template_inline)
+
+# ─── Available output types ───
+# stdout          - Print to standard output
+# file            - Append to file (path required)
+# tcp             - Send via TCP (host + port required)
+# udp             - Send via UDP (host + port required)
+# http            - POST to HTTP endpoint (url required)
+
+# ─── Available wave shapes ───
+# sine            - Smooth sinusoidal oscillation
+# sawtooth        - Linear ramp from min to max
+# square          - Alternates between min and max
+
+
+[defaults]
+rate = 10  # Default events per second (used when stream omits eps)
+
+# ─── Web Dashboard ───
+[web]
+enabled = true
+listen = "0.0.0.0:8080"
+auto_open_browser = false  # Open dashboard URL automatically on startup
+# username = "admin"       # Uncomment for BasicAuth
+# password = "secret"      # Both required to enable auth
+
+
+# ─── Stream 1: syslog_rfc5424 to TCP ───
+# [[streams]]
+# name = "access-log"
+# enabled = true
+#
+# [streams.format]
+# type = "syslog_rfc5424"
+#
+# [streams.output]
+# type = "tcp"
+# host = "filebeat"
+# port = 9000
+#
+# [streams.rate]
+# eps = 10
+
+
+# ─── Stream 2: syslog_rfc3164 to UDP ───
+# [[streams]]
+# name = "access-log"
+# enabled = true
+#
+# [streams.format]
+# type = "syslog_rfc5424"
+#
+# [streams.output]
+# type = "udp"
+# host = "filebeat"
+# port = 9000
+#
+# [streams.rate]
+# eps = 10
+
+# ─── Stream 3: http - json to UDP ───
+[[streams]]
+name = "http-json"
+enabled = true
+
+[streams.format]
+type = "json"
+
+[streams.output]
+type = "http"
+url = "http://filebeat:9080"
+
+[streams.rate]
+eps = 10

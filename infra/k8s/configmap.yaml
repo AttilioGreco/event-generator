@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: event-generator-config
+data:
+  config.toml: |
+    # Event Generator - Kubernetes Example Configuration
+    # Based on config/example.toml
+
+    [defaults]
+    rate = 10
+
+    [web]
+    enabled = true
+    listen = "0.0.0.0:8080"
+    auto_open_browser = false
+
+    [[streams]]
+    name = "syslog-stdout"
+    enabled = false
+
+    [streams.format]
+    type = "syslog_rfc5424"
+    facility = "local0"
+    severity = "info"
+    app_name = "event-generator"
+
+    [streams.output]
+    type = "stdout"
+
+    [streams.rate]
+    eps = 5
+
+    [[streams]]
+    name = "access-log"
+    enabled = true
+
+    [streams.format]
+    type = "clf"
+
+    [streams.output]
+    type = "tcp"
+    host = "localhost"
+    port = 514
+
+    [streams.rate]
+    eps = 10

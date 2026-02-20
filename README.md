@@ -101,6 +101,20 @@ cargo run -- --config config/example.toml
 just run
 ```
 
+### Tests + test image
+
+`just test` runs `cargo test` and then builds/pushes a test Docker image.
+
+```bash
+TEST_IMAGE=localhost:5000/event-generator:test just test
+```
+
+If you only want to run Rust tests (no Docker push):
+
+```bash
+just test-only
+```
+
 ### Build
 
 ```bash
@@ -141,6 +155,10 @@ just docker-run CONFIG=config/example.toml
 ```bash
 just docker-run-debug CONFIG=config/example.toml
 ```
+
+## Kubernetes
+
+Example Kubernetes manifests live under `infra/k8s/` (Deployment + Service + ConfigMap).
 
 ## Release workflow
 

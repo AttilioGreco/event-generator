@@ -1,0 +1,21 @@
+FROM rust:1.93-alpine3.23
+
+RUN apk add --no-cache musl-dev pkgconfig && \
+    cargo install cargo-watch
+
+WORKDIR /app
+
+# Pre-fetch delle sole dipendenze nel Cargo registry.
+# Il sorgente NON viene copiato nel layer: arriva a runtime
+# tramite il volume mount ./:/app in docker-compose.
+# In questo modo qualsiasi modifica al codice NON invalida
+# i layer Docker e le crate rimangono cachate nel volume
+# cargo-registry montato su /usr/local/cargo.
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir -p src && \
+    echo 'fn main() {}' > src/main.rs && \
+    echo '' > src/lib.rs && \
+    cargo fetch && \
+    rm -rf src
+
+ENTRYPOINT ["cargo", "watch", "-q", "-c", "-x", "run -- --config /config/config.toml"]

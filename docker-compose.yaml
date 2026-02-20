@@ -1,0 +1,39 @@
+services:
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:9.2.0
+    networks:
+      - event-generator
+    container_name: filebeat-event-generator
+    volumes:
+      - ./infra/docker-compose/entrypoint.override.sh:/usr/local/bin/docker-entrypoint:ro
+      - ./infra/docker-compose/filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./infra/parser-tests/logs:/var/log/shared:rw
+      - logs-shared:/var/log/shared:ro
+
+  event-generator:
+    build:
+      context: ./
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./:/app
+      - cargo-target:/app/target
+      - cargo-registry:/usr/local/cargo/registry
+      - ./infra/docker-compose/conf.toml:/config/config.toml:ro
+      - logs-shared:/var/log/shared
+    container_name: event-generator
+    ports:
+      - "8080:8080"
+    networks:
+      - event-generator
+
+networks:
+  event-generator:
+    name: event-generator
+
+volumes:
+  logs-shared:
+    name: logs-shared
+  cargo-target:
+    name: event-generator-cargo-target
+  cargo-registry:
+    name: event-generator-cargo-registry
