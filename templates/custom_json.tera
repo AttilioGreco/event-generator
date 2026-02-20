@@ -1,0 +1,1 @@
+{"@timestamp":"{{ timestamp_iso() }}","event_id":"{{ fake_uuid() }}","source_ip":"{{ fake_ipv4() }}","dest_ip":"{{ fake_ipv4() }}","action":"{{ pick(values="allow,deny,drop") }}","bytes":{{ fake_int(min=64, max=65535) }},"user":"{{ fake_username() }}","hostname":"{{ fake_hostname() }}"}

@@ -1,0 +1,1 @@
+{{ timestamp_iso() }} firewall {{ fake_hostname() }} {{ pick(values="ACCEPT,DROP,REJECT") }} {{ pick(values="TCP,UDP,ICMP") }} {{ fake_ipv4() }}:{{ fake_int(min=1024, max=65535) }} -> {{ fake_ipv4() }}:{{ pick(values="80,443,8080,22,3389") }} bytes={{ fake_int(min=40, max=9000) }}

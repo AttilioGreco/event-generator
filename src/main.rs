@@ -8,6 +8,7 @@ use event_generator::config::model::AppConfig;
 use event_generator::config::validate::validate;
 use event_generator::engine::rate::RateController;
 use event_generator::engine::stream::run_stream;
+use event_generator::engine::wave::{WaveModulator, WaveShape};
 use event_generator::format::build_formatter;
 use event_generator::output::build_sink;
 
@@ -47,7 +48,20 @@ async fn main() -> Result<()> {
             .and_then(|r| r.eps)
             .unwrap_or(default_eps);
 
-        let rate = RateController::new(eps);
+        let mut rate = RateController::new(eps);
+
+        // Apply wave modulation if configured
+        if let Some(wave_config) = stream_config.rate.as_ref().and_then(|r| r.wave.as_ref()) {
+            let shape = match wave_config.shape.as_str() {
+                "sine" => WaveShape::Sine,
+                "sawtooth" => WaveShape::Sawtooth,
+                "square" => WaveShape::Square,
+                other => anyhow::bail!("unknown wave shape: {other}"),
+            };
+            let wave = WaveModulator::new(shape, wave_config.period_secs, wave_config.min, wave_config.max);
+            rate = rate.with_wave(wave);
+        }
+
         let name = stream_config.name.clone();
         let token = cancel.clone();
 
