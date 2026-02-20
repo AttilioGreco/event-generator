@@ -15,6 +15,8 @@ pub struct WebConfig {
     pub enabled: bool,
     #[serde(default = "default_listen")]
     pub listen: String,
+    #[serde(default)]
+    pub auto_open_browser: bool,
     pub username: Option<String>,
     pub password: Option<String>,
 }

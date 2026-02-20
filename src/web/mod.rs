@@ -1,6 +1,7 @@
 mod dashboard;
 
 use std::collections::HashMap;
+use std::process::Command;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Instant;
@@ -77,6 +78,16 @@ pub async fn run_web_server(
 
     let listener = tokio::net::TcpListener::bind(&config.listen).await?;
     eprintln!("[web] dashboard at http://{}", config.listen);
+
+    if config.auto_open_browser {
+        let local_addr = listener.local_addr()?;
+        let browser_url = dashboard_browser_url(local_addr);
+        if let Err(err) = open_browser(&browser_url) {
+            eprintln!("[web] failed to open browser automatically: {err}");
+        } else {
+            eprintln!("[web] opened browser at {browser_url}");
+        }
+    }
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
@@ -355,4 +366,61 @@ fn unauthorized_response() -> Response<Body> {
         .header("WWW-Authenticate", "Basic realm=\"event-generator\"")
         .body(Body::from("Unauthorized"))
         .unwrap()
+}
+
+fn dashboard_browser_url(addr: std::net::SocketAddr) -> String {
+    if addr.ip().is_unspecified() {
+        format!("http://localhost:{}", addr.port())
+    } else {
+        format!("http://{addr}")
+    }
+}
+
+fn open_browser(url: &str) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open").arg(url).spawn()?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/C", "start", "", url])
+            .spawn()?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let has_gui = std::env::var_os("DISPLAY").is_some()
+            || std::env::var_os("WAYLAND_DISPLAY").is_some();
+
+        if !has_gui {
+            anyhow::bail!(
+                "no graphical session detected (DISPLAY/WAYLAND_DISPLAY missing). Open manually: {url}"
+            );
+        }
+
+        if let Ok(status) = Command::new("xdg-open").arg(url).status() {
+            if status.success() {
+                return Ok(());
+            }
+        }
+
+        if let Ok(status) = Command::new("gio").args(["open", url]).status() {
+            if status.success() {
+                return Ok(());
+            }
+        }
+
+        anyhow::bail!(
+            "could not open browser with xdg-open/gio. Open manually: {url}"
+        )
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows", unix)))]
+    {
+        anyhow::bail!("automatic browser open is not supported on this platform")
+    }
 }

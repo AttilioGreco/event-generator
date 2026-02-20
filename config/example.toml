@@ -8,6 +8,7 @@ rate = 10  # Default events per second (used when stream omits eps)
 [web]
 enabled = true
 listen = "0.0.0.0:8080"
+auto_open_browser = true   # Open dashboard URL automatically on startup
 # username = "admin"       # Uncomment for BasicAuth
 # password = "secret"      # Both required to enable auth
 
