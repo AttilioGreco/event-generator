@@ -122,15 +122,15 @@ async fn static_handler(
     let path = uri.path().trim_start_matches('/');
 
     // Try the exact path first, then fall back to index.html (SPA routing)
-    let file = if path.is_empty() {
-        dashboard::DashboardAssets::get("index.html")
+    let (file, effective_path) = if path.is_empty() {
+        (dashboard::DashboardAssets::get("index.html"), "index.html")
     } else {
-        dashboard::DashboardAssets::get(path)
+        (dashboard::DashboardAssets::get(path), path)
     };
 
     match file {
         Some(content) => {
-            let mime = mime_from_path(path);
+            let mime = mime_from_path(effective_path);
             Response::builder()
                 .status(StatusCode::OK)
                 .header("Content-Type", mime)
