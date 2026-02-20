@@ -37,20 +37,20 @@ auto_open_browser = false  # Open dashboard URL automatically on startup
 
 
 # ─── Stream 1: syslog_rfc5424 to TCP ───
-# [[streams]]
-# name = "access-log"
-# enabled = true
-#
-# [streams.format]
-# type = "syslog_rfc5424"
-#
-# [streams.output]
-# type = "tcp"
-# host = "filebeat"
-# port = 9000
-#
-# [streams.rate]
-# eps = 10
+[[streams]]
+name = "access-log"
+enabled = true
+
+[streams.format]
+type = "syslog_rfc5424"
+
+[streams.output]
+type = "tcp"
+host = "filebeat"
+port = 9000
+
+[streams.rate]
+eps = 3
 
 
 # ─── Stream 2: syslog_rfc3164 to UDP ───
@@ -70,22 +70,22 @@ auto_open_browser = false  # Open dashboard URL automatically on startup
 # eps = 10
 
 # ─── Stream 3: http - json to UDP ───
-[[streams]]
-name = "http-json"
-enabled = true
-
-[streams.format]
-type = "json"
-
-[streams.output]
-type = "http"
-url = "http://filebeat:9080"
-method = "POST"
-headers = { "Content-Type" = "application/json", "Authorization" = "Basic YWRtaW46c2VjcmV0" }
-# YWRtaW46c2VjcmV0 = base64("admin:secret")
-# change with: echo -n "user:pass" | base64
-batch_size = 5000
-timeout_ms = 10000
-
-[streams.rate]
-eps = 10000
+# [[streams]]
+# name = "http-json"
+# enabled = true
+#
+# [streams.format]
+# type = "json"
+#
+# [streams.output]
+# type = "http"
+# url = "http://filebeat:9080"
+# method = "POST"
+# headers = { "Content-Type" = "application/json", "Authorization" = "Basic YWRtaW46c2VjcmV0" }
+# # YWRtaW46c2VjcmV0 = base64("admin:secret")
+# # change with: echo -n "user:pass" | base64
+# batch_size = 5
+# timeout_ms = 10000
+#
+# [streams.rate]
+# seps = 1

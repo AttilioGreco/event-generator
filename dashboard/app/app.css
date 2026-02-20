@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --font-mono: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", ui-monospace, monospace;
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface2: #334155;
+  --color-border: #475569;
+  --color-text: #f1f5f9;
+  --color-text-dim: #94a3b8;
+  --color-accent: #38bdf8;
+  --color-green: #4ade80;
+  --color-orange: #fb923c;
+  --color-red: #f87171;
+  --color-purple: #c084fc;
+}
+
+html, body {
+  @apply bg-bg text-text min-h-screen;
+  font-family: var(--font-mono);
+}
+
+/* CodeMirror overrides */
+.cm-editor {
+  height: 100%;
+  font-size: 0.82rem;
+}
+.cm-editor .cm-scroller {
+  font-family: var(--font-mono);
+}

@@ -1,10 +1,27 @@
 default: build
 
-build:
+# Build dashboard first, then Rust release binary
+build: dashboard-build
     cargo build --release
 
 dev:
     cargo build
+
+# Build dashboard and then dev Rust binary
+dev-full: dashboard-build
+    cargo build
+
+# Run React dashboard dev server (hot reload, proxies to Rust backend)
+dashboard-dev:
+    cd dashboard && bun run dev
+
+# Build React dashboard for production
+dashboard-build:
+    cd dashboard && bun run build
+
+# Install dashboard dependencies
+dashboard-install:
+    cd dashboard && bun install
 
 dev-up:
     docker compose up --build -d

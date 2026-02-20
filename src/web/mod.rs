@@ -12,7 +12,7 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, Response, StatusCode};
 use axum::Json;
-use axum::response::{Html, IntoResponse};
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::Router;
 use base64::Engine;
@@ -25,7 +25,7 @@ use crate::format::{EventContext, build_formatter};
 use crate::config::model::WebConfig;
 use crate::stats::reporter::StreamStats;
 
-const DEBUG_MAX_SAMPLES: usize = 20;
+const MAX_SAMPLES: usize = 20;
 
 #[derive(Clone)]
 struct AppState {
@@ -44,6 +44,18 @@ struct DebugRenderRequest {
 
 #[derive(Debug, Serialize)]
 struct DebugRenderResponse {
+    output: Vec<String>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ScriptRunRequest {
+    code: String,
+    samples: Option<usize>,
+}
+
+#[derive(Debug, Serialize)]
+struct ScriptRunResponse {
     output: Vec<String>,
     error: Option<String>,
 }
@@ -69,11 +81,11 @@ pub async fn run_web_server(
     };
 
     let app = Router::new()
-        .route("/", get(index_handler))
-        .route("/assets/{*path}", get(asset_handler))
         .route("/api/debug/render", post(debug_render_handler))
+        .route("/api/script/run", post(script_run_handler))
         .route("/ws", get(ws_handler))
         .route("/ws/stream/{name}", get(ws_stream_handler))
+        .fallback(get(static_handler))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(&config.listen).await?;
@@ -98,43 +110,63 @@ pub async fn run_web_server(
     Ok(())
 }
 
-async fn index_handler(
+async fn static_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> impl IntoResponse {
-    if let Err(resp) = check_auth(&state.auth, &headers) {
-        return resp;
-    }
-    Html(dashboard::HTML).into_response()
-}
-
-async fn asset_handler(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(path): Path<String>,
+    uri: axum::http::Uri,
 ) -> impl IntoResponse {
     if let Err(resp) = check_auth(&state.auth, &headers) {
         return resp;
     }
 
-    let (content_type, body) = match path.as_str() {
-        "dashboard.css" => ("text/css; charset=utf-8", dashboard::CSS),
-        "dashboard.js" => ("application/javascript; charset=utf-8", dashboard::JS),
-        "alpinejs.min.js" => ("application/javascript; charset=utf-8", dashboard::ALPINE_JS),
-        "debug_presets.txt" => ("text/plain; charset=utf-8", dashboard::DEBUG_PRESETS),
-        _ => {
-            return Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(Body::from("Not Found"))
-                .unwrap();
-        }
+    let path = uri.path().trim_start_matches('/');
+
+    // Try the exact path first, then fall back to index.html (SPA routing)
+    let file = if path.is_empty() {
+        dashboard::DashboardAssets::get("index.html")
+    } else {
+        dashboard::DashboardAssets::get(path)
     };
 
-    Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", content_type)
-        .body(Body::from(body))
-        .unwrap()
+    match file {
+        Some(content) => {
+            let mime = mime_from_path(path);
+            Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", mime)
+                .body(Body::from(content.data.to_vec()))
+                .unwrap()
+        }
+        None => {
+            // SPA fallback: serve index.html for any unknown path
+            match dashboard::DashboardAssets::get("index.html") {
+                Some(index) => Response::builder()
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "text/html; charset=utf-8")
+                    .body(Body::from(index.data.to_vec()))
+                    .unwrap(),
+                None => Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(Body::from("Dashboard not built"))
+                    .unwrap(),
+            }
+        }
+    }
+}
+
+fn mime_from_path(path: &str) -> &'static str {
+    match path.rsplit('.').next() {
+        Some("html") => "text/html; charset=utf-8",
+        Some("css") => "text/css; charset=utf-8",
+        Some("js") => "application/javascript; charset=utf-8",
+        Some("json") => "application/json; charset=utf-8",
+        Some("svg") => "image/svg+xml",
+        Some("png") => "image/png",
+        Some("ico") => "image/x-icon",
+        Some("woff2") => "font/woff2",
+        Some("woff") => "font/woff",
+        _ => "application/octet-stream",
+    }
 }
 
 async fn ws_handler(
@@ -233,7 +265,7 @@ async fn debug_render_handler(
         }
     };
 
-    let sample_count = req.samples.unwrap_or(1).max(1).min(DEBUG_MAX_SAMPLES);
+    let sample_count = req.samples.unwrap_or(1).max(1).min(MAX_SAMPLES);
     let mut output = Vec::with_capacity(sample_count);
 
     for idx in 0..sample_count {
@@ -242,6 +274,50 @@ async fn debug_render_handler(
     }
 
     Json(DebugRenderResponse { output, error: None }).into_response()
+}
+
+async fn script_run_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ScriptRunRequest>,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    let code = req.code.trim();
+    if code.is_empty() {
+        return Json(ScriptRunResponse {
+            output: Vec::new(),
+            error: Some("code is required".into()),
+        })
+        .into_response();
+    }
+
+    let engine = match crate::script::ScriptEngine::from_inline(code, 10_000) {
+        Ok(e) => e,
+        Err(e) => {
+            return Json(ScriptRunResponse {
+                output: Vec::new(),
+                error: Some(e.to_string()),
+            })
+            .into_response();
+        }
+    };
+
+    let sample_count = req.samples.unwrap_or(1).max(1).min(MAX_SAMPLES);
+    let mut output = Vec::with_capacity(sample_count);
+
+    for _ in 0..sample_count {
+        let result = engine.run();
+        output.push(result);
+    }
+
+    Json(ScriptRunResponse {
+        output,
+        error: None,
+    })
+    .into_response()
 }
 
 async fn handle_ws(mut socket: WebSocket, state: AppState) {

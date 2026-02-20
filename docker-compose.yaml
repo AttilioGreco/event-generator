@@ -21,8 +21,48 @@ services:
       - ./infra/docker-compose/conf.toml:/config/config.toml:ro
       - logs-shared:/var/log/shared
     container_name: event-generator
+    labels:
+      - "traefik.enable=true"
+      # API routes
+      - "traefik.http.routers.event_generator_api.priority=10"
+      - "traefik.http.routers.event_generator_api.rule=PathPrefix(`/api/`) || PathPrefix(`/ws`)"
+      - "traefik.http.routers.event_generator_api.entrypoints=web"
+      - "traefik.http.services.event_generator_api.loadbalancer.server.port=8080"
+    networks:
+      - event-generator
+
+  spa_react:
+    mem_limit: 512m
+    mem_reservation: 512M
+    cpus: 2
+    container_name: "event-generator-frontend"
+    build:
+      context: dashboard/
+      dockerfile: Dockerfile
+    networks:
+      - event-generator
+    volumes:
+      - ./dashboard/:/app
+      - /app/node_modules/
+    labels:
+      - "traefik.enable=true"
+      # Catch-all: everything not /api/ or /ws goes to React
+      - "traefik.http.routers.spa_react.priority=1"
+      - "traefik.http.routers.spa_react.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.spa_react.entrypoints=web"
+      - "traefik.http.services.spa_react.loadbalancer.server.port=3000"
+
+  reverse-proxy:
+    image: traefik:v3
+    command:
+      - --api.insecure=true
+      - --providers.docker
+      - --entrypoints.web.address=:5000
+      - --accesslog=true
     ports:
-      - "8080:8080"
+      - "5000:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - event-generator
 
