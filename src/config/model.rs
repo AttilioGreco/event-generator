@@ -62,6 +62,11 @@ pub struct FormatConfig {
     // Template options (Phase 4)
     pub template_file: Option<String>,
     pub template_inline: Option<String>,
+
+    // Script options (Rhai scripting engine)
+    pub script_file: Option<String>,
+    pub script_inline: Option<String>,
+    pub max_operations: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]

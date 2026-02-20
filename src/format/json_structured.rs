@@ -58,6 +58,7 @@ mod tests {
             device_event_class_id: None,
             extra_fields: Some(extra),
             template_file: None, template_inline: None,
+            script_file: None, script_inline: None, max_operations: None,
         }
     }
 

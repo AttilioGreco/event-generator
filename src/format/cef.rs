@@ -70,6 +70,7 @@ mod tests {
             version: Some("2.0".into()),
             device_event_class_id: Some("200".into()),
             extra_fields: None, template_file: None, template_inline: None,
+            script_file: None, script_inline: None, max_operations: None,
         }
     }
 

@@ -26,6 +26,7 @@ pub fn validate(config: &AppConfig) -> Result<(), AppError> {
             "java_log4j",
             "java_logback",
             "template",
+            "script",
         ];
         if !valid_formats.contains(&stream.format.format_type.as_str()) {
             errors.push(format!(
@@ -72,6 +73,20 @@ pub fn validate(config: &AppConfig) -> Result<(), AppError> {
                 }
             }
             _ => {}
+        }
+
+        // Validate script format
+        if stream.format.format_type == "script" {
+            if stream.format.script_file.is_none() && stream.format.script_inline.is_none() {
+                errors.push(format!(
+                    "{prefix}: format type 'script' requires 'script_file' or 'script_inline'"
+                ));
+            }
+            if let Some(max_ops) = stream.format.max_operations {
+                if max_ops == 0 {
+                    errors.push(format!("{prefix}: max_operations must be > 0"));
+                }
+            }
         }
 
         // Validate rate

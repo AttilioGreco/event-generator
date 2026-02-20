@@ -46,6 +46,7 @@ pub enum LogFormatter {
     JavaLog4j(java_log4j::JavaLog4jFormatter),
     JavaLogback(java_log4j::JavaLogbackFormatter),
     Template(template::TemplateFormatter),
+    Script(crate::script::ScriptEngine),
 }
 
 impl LogFormatter {
@@ -60,6 +61,7 @@ impl LogFormatter {
             Self::JavaLog4j(f) => f.format(ctx),
             Self::JavaLogback(f) => f.format(ctx),
             Self::Template(f) => f.format(ctx),
+            Self::Script(engine) => engine.run(),
         }
     }
 }
@@ -95,6 +97,20 @@ pub fn build_formatter(config: &FormatConfig) -> Result<LogFormatter> {
                 ))
             } else {
                 anyhow::bail!("template format requires 'template_inline' or 'template_file'")
+            }
+        }
+        "script" => {
+            let max_ops = config.max_operations.unwrap_or(10_000);
+            if let Some(inline) = &config.script_inline {
+                Ok(LogFormatter::Script(
+                    crate::script::ScriptEngine::from_inline(inline, max_ops)?,
+                ))
+            } else if let Some(path) = &config.script_file {
+                Ok(LogFormatter::Script(
+                    crate::script::ScriptEngine::from_file(path, max_ops)?,
+                ))
+            } else {
+                anyhow::bail!("script format requires 'script_inline' or 'script_file'")
             }
         }
         other => anyhow::bail!("format type '{other}' not yet implemented"),

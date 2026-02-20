@@ -217,6 +217,9 @@ async fn debug_render_handler(
         extra_fields: None,
         template_file: None,
         template_inline,
+        script_file: None,
+        script_inline: None,
+        max_operations: None,
     };
 
     let formatter = match build_formatter(&config) {

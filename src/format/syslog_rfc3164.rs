@@ -63,6 +63,7 @@ mod tests {
             vendor: None, product: None, version: None,
             device_event_class_id: None, extra_fields: None,
             template_file: None, template_inline: None,
+            script_file: None, script_inline: None, max_operations: None,
         }
     }
 
