@@ -13,10 +13,14 @@ filebeat.inputs:
         enabled: true
         listen_address: "0.0.0.0"
         listen_port: 9080
+        content_type: "application/json"
         response_code: 200
         response_body: '{"message": "success"}'
         url: "/"
         prefix: "json"
+        basic_auth: true
+        username: admin
+        password: secret
 
 output.console:
       pretty: true

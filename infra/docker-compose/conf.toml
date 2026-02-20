@@ -80,6 +80,12 @@ type = "json"
 [streams.output]
 type = "http"
 url = "http://filebeat:9080"
+method = "POST"
+headers = { "Content-Type" = "application/json", "Authorization" = "Basic YWRtaW46c2VjcmV0" }
+# YWRtaW46c2VjcmV0 = base64("admin:secret")
+# change with: echo -n "user:pass" | base64
+batch_size = 5000
+timeout_ms = 10000
 
 [streams.rate]
-eps = 10
+eps = 10000
