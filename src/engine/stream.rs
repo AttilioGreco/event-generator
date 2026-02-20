@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use tokio_util::sync::CancellationToken;
 
 use crate::format::{EventContext, LogFormatter};
 use crate::output::OutputSink;
+use crate::stats::reporter::StreamStats;
 
 use super::rate::RateController;
 
@@ -11,6 +14,7 @@ pub async fn run_stream(
     formatter: LogFormatter,
     mut sink: OutputSink,
     mut rate: RateController,
+    stats: Arc<StreamStats>,
     cancel: CancellationToken,
 ) -> Result<()> {
     let mut sequence: u64 = 0;
@@ -33,6 +37,7 @@ pub async fn run_stream(
                     eprintln!("[{name}] send error: {e}");
                 }
 
+                stats.record_event();
                 sequence += 1;
             }
         }

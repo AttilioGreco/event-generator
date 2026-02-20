@@ -1,9 +1,17 @@
 # Event Generator - Example Configuration
+# See all available options below.
 
 [defaults]
-rate = 10  # Default events per second
+rate = 10  # Default events per second (used when stream omits eps)
 
-# Stream 1: Syslog to stdout
+# ─── Web Dashboard ───
+[web]
+enabled = true
+listen = "0.0.0.0:8080"
+# username = "admin"       # Uncomment for BasicAuth
+# password = "secret"      # Both required to enable auth
+
+# ─── Stream 1: Syslog RFC 5424 to stdout ───
 [[streams]]
 name = "syslog-stdout"
 enabled = true
@@ -20,36 +28,97 @@ type = "stdout"
 [streams.rate]
 eps = 5
 
-# Stream 2: Syslog to file
+# ─── Stream 2: CLF access logs to file ───
 [[streams]]
-name = "syslog-file"
+name = "access-log"
 enabled = true
 
 [streams.format]
-type = "syslog_rfc5424"
-facility = "auth"
-severity = "warning"
-app_name = "auth-service"
+type = "clf"
 
 [streams.output]
 type = "file"
-path = "/tmp/event-generator.log"
+path = "/tmp/event-generator-access.log"
 
 [streams.rate]
 eps = 10
 
-# Stream 3: Syslog to UDP (disabled by default)
+# ─── Stream 3: CEF with sine wave modulation (disabled by default) ───
 # [[streams]]
-# name = "syslog-udp"
+# name = "cef-sine"
 # enabled = true
 #
 # [streams.format]
-# type = "syslog_rfc5424"
+# type = "cef"
+# vendor = "MyCorp"
+# product = "NextGenFW"
+# version = "5.0"
 #
 # [streams.output]
-# type = "udp"
-# host = "127.0.0.1"
-# port = 514
+# type = "file"
+# path = "/tmp/event-generator-cef.log"
 #
 # [streams.rate]
 # eps = 100
+# [streams.rate.wave]
+# shape = "sine"
+# period_secs = 60
+# min = 10
+# max = 200
+
+# ─── Stream 4: Custom JSON via template (disabled by default) ───
+# [[streams]]
+# name = "custom-json"
+# enabled = true
+#
+# [streams.format]
+# type = "template"
+# template_file = "templates/custom_json.tera"
+#
+# [streams.output]
+# type = "stdout"
+#
+# [streams.rate]
+# eps = 5
+
+# ─── Stream 5: HTTP output (disabled by default) ───
+# [[streams]]
+# name = "http-ingest"
+# enabled = true
+#
+# [streams.format]
+# type = "json"
+#
+# [streams.output]
+# type = "http"
+# url = "https://logs.example.com/api/v1/ingest"
+# method = "POST"
+# headers = { "Authorization" = "Bearer YOUR_TOKEN", "Content-Type" = "application/x-ndjson" }
+# batch_size = 50
+# timeout_ms = 5000
+#
+# [streams.rate]
+# eps = 100
+
+# ─── Available format types ───
+# syslog_rfc5424  - RFC 5424 structured syslog
+# syslog_rfc3164  - RFC 3164 BSD syslog
+# cef             - ArcSight Common Event Format
+# leef            - IBM QRadar Log Event Extended Format
+# clf             - Common Log Format (NCSA combined)
+# json            - JSON structured log
+# java_log4j      - Java Log4j pattern
+# java_logback    - Java Logback pattern
+# template        - Custom Tera template (template_file or template_inline)
+
+# ─── Available output types ───
+# stdout          - Print to standard output
+# file            - Append to file (path required)
+# tcp             - Send via TCP (host + port required)
+# udp             - Send via UDP (host + port required)
+# http            - POST to HTTP endpoint (url required)
+
+# ─── Available wave shapes ───
+# sine            - Smooth sinusoidal oscillation
+# sawtooth        - Linear ramp from min to max
+# square          - Alternates between min and max

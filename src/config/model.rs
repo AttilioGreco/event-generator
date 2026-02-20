@@ -5,7 +5,22 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
     pub defaults: Option<Defaults>,
+    pub web: Option<WebConfig>,
     pub streams: Vec<StreamConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct WebConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_listen")]
+    pub listen: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
+fn default_listen() -> String {
+    "0.0.0.0:8080".into()
 }
 
 #[derive(Debug, Deserialize)]

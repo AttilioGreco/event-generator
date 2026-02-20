@@ -1,4 +1,5 @@
 pub mod file;
+pub mod http;
 pub mod stdout;
 pub mod tcp;
 pub mod udp;
@@ -12,6 +13,7 @@ pub enum OutputSink {
     File(file::FileSink),
     Tcp(tcp::TcpSink),
     Udp(udp::UdpSink),
+    Http(http::HttpSink),
 }
 
 impl OutputSink {
@@ -21,6 +23,7 @@ impl OutputSink {
             Self::File(s) => s.send(event).await,
             Self::Tcp(s) => s.send(event).await,
             Self::Udp(s) => s.send(event).await,
+            Self::Http(s) => s.send(event).await,
         }
     }
 
@@ -30,6 +33,7 @@ impl OutputSink {
             Self::File(s) => s.flush().await,
             Self::Tcp(s) => s.flush().await,
             Self::Udp(s) => s.flush().await,
+            Self::Http(s) => s.flush().await,
         }
     }
 
@@ -39,6 +43,7 @@ impl OutputSink {
             Self::File(s) => s.close().await,
             Self::Tcp(s) => s.close().await,
             Self::Udp(s) => s.close().await,
+            Self::Http(s) => s.close().await,
         }
     }
 }
@@ -72,6 +77,19 @@ pub async fn build_sink(config: &OutputConfig) -> Result<OutputSink> {
                 .port
                 .ok_or_else(|| anyhow::anyhow!("udp output requires 'port'"))?;
             Ok(OutputSink::Udp(udp::UdpSink::new(host, port).await?))
+        }
+        "http" => {
+            let url = config
+                .url
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("http output requires 'url'"))?;
+            Ok(OutputSink::Http(http::HttpSink::new(
+                url,
+                config.method.as_deref(),
+                config.headers.as_ref(),
+                config.batch_size,
+                config.timeout_ms,
+            )?))
         }
         other => anyhow::bail!("output type '{other}' not yet implemented"),
     }
