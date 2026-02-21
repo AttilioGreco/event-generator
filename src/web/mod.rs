@@ -3,7 +3,6 @@ mod dashboard;
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Result;
@@ -13,7 +12,7 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, Response, StatusCode};
 use axum::Json;
 use axum::response::IntoResponse;
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::Router;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
@@ -21,16 +20,15 @@ use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
 use crate::config::model::FormatConfig;
+use crate::engine::manager::{StreamManager, StreamStatus};
 use crate::format::{EventContext, build_formatter};
 use crate::config::model::WebConfig;
-use crate::stats::reporter::StreamStats;
 
 const MAX_SAMPLES: usize = 20;
 
 #[derive(Clone)]
 struct AppState {
-    streams: Vec<Arc<StreamStats>>,
-    streams_by_name: HashMap<String, Arc<StreamStats>>,
+    manager: StreamManager,
     start_time: Instant,
     auth: Option<(String, String)>,
 }
@@ -60,9 +58,29 @@ struct ScriptRunResponse {
     error: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct ConfigUpdateRequest {
+    config: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ConfigUpdateResponse {
+    success: bool,
+    error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct StreamStatusResponse {
+    name: String,
+    destination: String,
+    status: StreamStatus,
+    error: Option<String>,
+    total_events: u64,
+}
+
 pub async fn run_web_server(
     config: WebConfig,
-    streams: Vec<Arc<StreamStats>>,
+    manager: StreamManager,
     cancel: CancellationToken,
 ) -> Result<()> {
     let auth = match (&config.username, &config.password) {
@@ -71,11 +89,7 @@ pub async fn run_web_server(
     };
 
     let state = AppState {
-        streams_by_name: streams
-            .iter()
-            .map(|s| (s.name.clone(), Arc::clone(s)))
-            .collect(),
-        streams,
+        manager,
         start_time: Instant::now(),
         auth,
     };
@@ -83,6 +97,13 @@ pub async fn run_web_server(
     let app = Router::new()
         .route("/api/debug/render", post(debug_render_handler))
         .route("/api/script/run", post(script_run_handler))
+        .route("/api/config", get(get_config_handler))
+        .route("/api/config", put(put_config_handler))
+        .route("/api/streams", get(list_streams_handler))
+        .route("/api/streams/start-all", post(start_all_handler))
+        .route("/api/streams/stop-all", post(stop_all_handler))
+        .route("/api/streams/{name}/start", post(start_stream_handler))
+        .route("/api/streams/{name}/stop", post(stop_stream_handler))
         .route("/ws", get(ws_handler))
         .route("/ws/stream/{name}", get(ws_stream_handler))
         .fallback(get(static_handler))
@@ -121,7 +142,6 @@ async fn static_handler(
 
     let path = uri.path().trim_start_matches('/');
 
-    // Try the exact path first, then fall back to index.html (SPA routing)
     let (file, effective_path) = if path.is_empty() {
         (dashboard::DashboardAssets::get("index.html"), "index.html")
     } else {
@@ -138,7 +158,6 @@ async fn static_handler(
                 .unwrap()
         }
         None => {
-            // SPA fallback: serve index.html for any unknown path
             match dashboard::DashboardAssets::get("index.html") {
                 Some(index) => Response::builder()
                     .status(StatusCode::OK)
@@ -169,6 +188,138 @@ fn mime_from_path(path: &str) -> &'static str {
     }
 }
 
+// --- Config API ---
+
+async fn get_config_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    let config_text = state.manager.config_text().await;
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "text/plain; charset=utf-8")
+        .body(Body::from(config_text))
+        .unwrap()
+}
+
+async fn put_config_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ConfigUpdateRequest>,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    match state.manager.apply_config(req.config).await {
+        Ok(()) => Json(ConfigUpdateResponse {
+            success: true,
+            error: None,
+        })
+        .into_response(),
+        Err(e) => Json(ConfigUpdateResponse {
+            success: false,
+            error: Some(format!("{e:#}")),
+        })
+        .into_response(),
+    }
+}
+
+// --- Streams API ---
+
+async fn list_streams_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    let infos = state.manager.stream_infos().await;
+    let list: Vec<StreamStatusResponse> = infos
+        .into_iter()
+        .map(|i| StreamStatusResponse {
+            name: i.name,
+            destination: i.destination,
+            status: i.status,
+            error: i.error,
+            total_events: i.stats.total_events.load(Ordering::Relaxed),
+        })
+        .collect();
+
+    Json(list).into_response()
+}
+
+async fn start_stream_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    match state.manager.start_stream(&name).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => {
+            eprintln!("[web] start stream '{}' failed: {:#}", name, e);
+            (StatusCode::BAD_REQUEST, format!("{e:#}")).into_response()
+        }
+    }
+}
+
+async fn stop_stream_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    match state.manager.stop_stream(&name).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => {
+            eprintln!("[web] stop stream '{}' failed: {:#}", name, e);
+            (StatusCode::BAD_REQUEST, format!("{e:#}")).into_response()
+        }
+    }
+}
+
+async fn start_all_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    match state.manager.start_all().await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn stop_all_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    match state.manager.stop_all().await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+// --- WebSocket handlers ---
+
 async fn ws_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -191,7 +342,7 @@ async fn ws_stream_handler(
         return resp;
     }
 
-    let Some(stream) = state.streams_by_name.get(&name).cloned() else {
+    let Some(stream) = state.manager.stream_by_name(&name).await else {
         return Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body(Body::from("Stream not found"))
@@ -201,6 +352,8 @@ async fn ws_stream_handler(
     ws.on_upgrade(move |socket| handle_ws_stream(socket, stream))
         .into_response()
 }
+
+// --- Debug/Script handlers ---
 
 async fn debug_render_handler(
     State(state): State<AppState>,
@@ -320,9 +473,11 @@ async fn script_run_handler(
     .into_response()
 }
 
+// --- WebSocket implementation ---
+
 async fn handle_ws(mut socket: WebSocket, state: AppState) {
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
-    let mut prev_totals: Vec<u64> = state.streams.iter().map(|_| 0).collect();
+    let mut prev_totals: HashMap<String, u64> = HashMap::new();
 
     loop {
         interval.tick().await;
@@ -330,21 +485,31 @@ async fn handle_ws(mut socket: WebSocket, state: AppState) {
         let elapsed = state.start_time.elapsed();
         let uptime_secs = elapsed.as_secs();
 
+        let infos = state.manager.stream_infos().await;
+
         let mut stream_data = Vec::new();
         let mut total_eps: u64 = 0;
         let mut total_events: u64 = 0;
 
-        for (i, s) in state.streams.iter().enumerate() {
-            let total = s.total_events.load(Ordering::Relaxed);
-            let eps = total.saturating_sub(prev_totals[i]);
-            prev_totals[i] = total;
+        for info in &infos {
+            let total = info.stats.total_events.load(Ordering::Relaxed);
+            let prev = prev_totals.get(&info.name).copied().unwrap_or(0);
+            let eps = total.saturating_sub(prev);
+            prev_totals.insert(info.name.clone(), total);
             total_eps += eps;
             total_events += total;
+            let status_str = match &info.status {
+                StreamStatus::Running => "running",
+                StreamStatus::Stopped => "stopped",
+                StreamStatus::Error => "error",
+            };
             stream_data.push(serde_json::json!({
-                "name": s.name,
-                "destination": s.destination,
+                "name": info.name,
+                "destination": info.destination,
                 "eps": eps,
                 "total": total,
+                "status": status_str,
+                "error": info.error,
             }));
         }
 
@@ -362,7 +527,7 @@ async fn handle_ws(mut socket: WebSocket, state: AppState) {
     }
 }
 
-async fn handle_ws_stream(mut socket: WebSocket, stream: Arc<StreamStats>) {
+async fn handle_ws_stream(mut socket: WebSocket, stream: std::sync::Arc<crate::stats::reporter::StreamStats>) {
     let snapshot = serde_json::json!({
         "type": "snapshot",
         "events": stream.recent_events_snapshot(),
@@ -403,12 +568,14 @@ async fn handle_ws_stream(mut socket: WebSocket, stream: Arc<StreamStats>) {
     }
 }
 
+// --- Auth ---
+
 fn check_auth(
     auth: &Option<(String, String)>,
     headers: &HeaderMap,
 ) -> Result<(), Response<Body>> {
     let Some((expected_user, expected_pass)) = auth else {
-        return Ok(()); // No auth configured
+        return Ok(());
     };
 
     let Some(auth_header) = headers.get("authorization") else {

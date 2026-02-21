@@ -5,6 +5,8 @@ export interface StreamData {
   destination: string;
   eps: number;
   total: number;
+  status: "running" | "stopped" | "error";
+  error?: string | null;
 }
 
 interface StatsState {

@@ -87,6 +87,32 @@ pub async fn run_stats_reporter(
     }
 }
 
+pub async fn run_stats_reporter_dynamic(
+    manager: crate::engine::manager::StreamManager,
+    interval_secs: u64,
+    cancel: CancellationToken,
+) {
+    let start = Instant::now();
+    let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));
+    ticker.tick().await; // First tick is immediate, skip it
+
+    loop {
+        tokio::select! {
+            _ = cancel.cancelled() => {
+                let infos = manager.stream_infos().await;
+                let stats: Vec<Arc<StreamStats>> = infos.into_iter().filter(|i| i.status == crate::engine::manager::StreamStatus::Running).map(|i| i.stats).collect();
+                print_stats(&stats, start.elapsed());
+                return;
+            }
+            _ = ticker.tick() => {
+                let infos = manager.stream_infos().await;
+                let stats: Vec<Arc<StreamStats>> = infos.into_iter().filter(|i| i.status == crate::engine::manager::StreamStatus::Running).map(|i| i.stats).collect();
+                print_stats(&stats, start.elapsed());
+            }
+        }
+    }
+}
+
 fn print_stats(streams: &[Arc<StreamStats>], elapsed: Duration) {
     let elapsed_secs = elapsed.as_secs();
     let hours = elapsed_secs / 3600;

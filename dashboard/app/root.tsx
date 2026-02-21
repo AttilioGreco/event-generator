@@ -54,6 +54,18 @@ export default function App() {
             Dashboard
           </NavLink>
           <NavLink
+            to="/config"
+            className={({ isActive }) =>
+              `h-[34px] px-3 flex items-center text-xs border rounded-lg cursor-pointer transition-colors ${
+                isActive
+                  ? "border-accent text-text"
+                  : "border-border text-text-dim bg-surface hover:text-text"
+              }`
+            }
+          >
+            Config
+          </NavLink>
+          <NavLink
             to="/studio"
             className={({ isActive }) =>
               `h-[34px] px-3 flex items-center text-xs border rounded-lg cursor-pointer transition-colors ${

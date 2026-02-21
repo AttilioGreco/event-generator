@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct AppConfig {
     pub defaults: Option<Defaults>,
     pub web: Option<WebConfig>,
@@ -25,12 +25,12 @@ fn default_listen() -> String {
     "0.0.0.0:8080".into()
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Defaults {
     pub rate: Option<f64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StreamConfig {
     pub name: String,
     #[serde(default = "default_true")]
@@ -40,7 +40,7 @@ pub struct StreamConfig {
     pub rate: Option<RateConfig>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct FormatConfig {
     #[serde(rename = "type")]
     pub format_type: String,
@@ -69,7 +69,7 @@ pub struct FormatConfig {
     pub max_operations: Option<u64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct OutputConfig {
     #[serde(rename = "type")]
     pub output_type: String,
@@ -89,13 +89,13 @@ pub struct OutputConfig {
     pub timeout_ms: Option<u64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RateConfig {
     pub eps: Option<f64>,
     pub wave: Option<WaveConfig>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct WaveConfig {
     pub shape: String,
     pub period_secs: f64,
