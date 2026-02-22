@@ -103,3 +103,28 @@ else
   echo "  git push origin $CURRENT_BRANCH"
   echo "  git push origin $TAG"
 fi
+
+# --- Bump to next minor version ---
+IFS='.' read -r MAJOR MINOR _PATCH <<< "$CURRENT_VERSION"
+NEXT_MINOR=$((MINOR + 1))
+NEXT_VERSION="${MAJOR}.${NEXT_MINOR}.0"
+
+echo ""
+read -r -p "Bump Cargo.toml to next version ${NEXT_VERSION}? [Y/n]: " DO_BUMP
+DO_BUMP=${DO_BUMP:-Y}
+if [[ "$DO_BUMP" =~ ^[Yy]$ ]]; then
+  sed -i "0,/^version\s*=\s*\"${CURRENT_VERSION}\"/s//version = \"${NEXT_VERSION}\"/" Cargo.toml
+  # Update Cargo.lock
+  cargo check --quiet 2>/dev/null || true
+  git add Cargo.toml Cargo.lock
+  git commit -m "chore: bump version to ${NEXT_VERSION}"
+  echo "Version bumped to ${NEXT_VERSION}"
+
+  if [[ "$DO_PUSH" =~ ^[Yy]$ ]]; then
+    git push origin "$CURRENT_BRANCH"
+    echo "Pushed version bump to origin."
+  else
+    echo "Version bump committed locally. Push when ready:"
+    echo "  git push origin $CURRENT_BRANCH"
+  fi
+fi
