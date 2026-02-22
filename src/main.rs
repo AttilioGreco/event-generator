@@ -12,9 +12,15 @@ use event_generator::web::run_web_server;
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
-    "\ngit:   ", env!("BUILD_GIT_SHA"), " (", env!("BUILD_GIT_TAG"), ")",
-    "\ndate:  ", env!("BUILD_DATE"),
-    "\nrustc: ", env!("BUILD_RUSTC"),
+    "\ngit:   ",
+    env!("BUILD_GIT_SHA"),
+    " (",
+    env!("BUILD_GIT_TAG"),
+    ")",
+    "\ndate:  ",
+    env!("BUILD_DATE"),
+    "\nrustc: ",
+    env!("BUILD_RUSTC"),
 );
 
 #[derive(Parser)]
