@@ -10,8 +10,15 @@ use event_generator::engine::manager::StreamManager;
 use event_generator::stats::reporter::run_stats_reporter_dynamic;
 use event_generator::web::run_web_server;
 
+const LONG_VERSION: &str = concat!(
+    env!("CARGO_PKG_VERSION"),
+    "\ngit:   ", env!("BUILD_GIT_SHA"), " (", env!("BUILD_GIT_TAG"), ")",
+    "\ndate:  ", env!("BUILD_DATE"),
+    "\nrustc: ", env!("BUILD_RUSTC"),
+);
+
 #[derive(Parser)]
-#[command(name = "event-generator", about = "Generate simulated log events")]
+#[command(name = "event-generator", about = "Generate simulated log events", version, long_version = LONG_VERSION)]
 struct Cli {
     #[arg(short, long, default_value = "config/example.toml")]
     config: PathBuf,
