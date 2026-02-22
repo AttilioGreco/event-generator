@@ -41,7 +41,5 @@ COPY --from=builder /app/target/release/event-generator /usr/local/bin/event-gen
 
 WORKDIR /app
 
-# ENTRYPOINT ["event-generator"]
-
-CMD [ "event-generator" ]
+ENTRYPOINT ["event-generator"]
 
