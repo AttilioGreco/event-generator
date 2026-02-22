@@ -1,58 +1,62 @@
 import { StatCard } from "~/components/stat-card";
 import { StreamsTable } from "~/components/streams-table";
+import { Badge } from "~/components/ui/badge";
 import { useStatsSocket } from "~/hooks/use-stats-socket";
 
 export default function DashboardPage() {
-  const { connected, uptimeSecs, totalEps, totalEvents, streams } =
-    useStatsSocket();
+  const { connected, uptimeSecs, totalEps, totalEvents, streams } = useStatsSocket();
 
   return (
     <>
       <div className="flex items-center gap-2 mb-4">
-        <div
-          className={`w-2 h-2 rounded-full ${connected ? "bg-green animate-pulse" : "bg-red"}`}
+        <span
+          className={`w-2 h-2 rounded-full ${connected ? "bg-green-400 animate-pulse" : "bg-destructive"}`}
         />
-        <span className="text-xs text-text-dim">
+        <span className="text-xs text-muted-foreground">
           {connected ? "Live" : "Disconnected"}
         </span>
       </div>
 
       {!connected && (
-        <div className="mb-4 px-4 py-3 rounded-lg border border-red/30 bg-red/10 text-red text-sm">
-          Can not connect to backend — retrying...
+        <div className="mb-4 px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm">
+          Cannot connect to backend — retrying…
         </div>
       )}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 mb-8">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-8">
         <StatCard
           label="Total EPS"
           value={formatNumber(totalEps)}
           sub="events per second"
-          color="text-accent"
+          color="text-primary"
         />
         <StatCard
           label="Total Events"
           value={formatNumber(totalEvents)}
           sub="since start"
-          color="text-green"
+          color="text-green-400"
         />
         <StatCard
           label="Active Streams"
-          value={String(streams.length)}
+          value={String(streams.filter((s) => s.status === "running").length)}
           sub="concurrent"
-          color="text-orange"
+          color="text-orange-400"
         />
         <StatCard
           label="Uptime"
           value={formatUptime(uptimeSecs)}
           sub="elapsed"
-          color="text-purple"
+          color="text-purple-400"
         />
       </div>
 
-      <h2 className="text-[0.75rem] font-semibold uppercase tracking-widest text-text-dim mb-4">
-        Streams
-      </h2>
+      <div className="flex items-center gap-3 mb-4">
+        <h2 className="text-[0.75rem] font-semibold uppercase tracking-widest text-muted-foreground">
+          Streams
+        </h2>
+        <Badge variant="secondary">{streams.length}</Badge>
+      </div>
+
       <StreamsTable streams={streams} />
     </>
   );

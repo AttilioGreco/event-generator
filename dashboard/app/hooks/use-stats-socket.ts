@@ -26,7 +26,7 @@ export function useStatsSocket(): StatsState {
     streams: [],
   });
   const wsRef = useRef<WebSocket | null>(null);
-  const retryRef = useRef<ReturnType<typeof setTimeout>>();
+  const retryRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const connect = useCallback(() => {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";

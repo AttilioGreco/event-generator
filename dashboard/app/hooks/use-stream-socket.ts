@@ -5,7 +5,7 @@ const MAX_EVENTS = 1000;
 export function useStreamSocket(streamName: string | null) {
   const [logs, setLogs] = useState<string[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
-  const retryRef = useRef<ReturnType<typeof setTimeout>>();
+  const retryRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const connect = useCallback(() => {
     if (!streamName) return;

@@ -1,8 +1,18 @@
 import { useState } from "react";
 import { Play, Square } from "lucide-react";
 
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { ScrollArea } from "~/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "~/components/ui/table";
 import type { StreamData } from "~/hooks/use-stats-socket";
-
 import { StreamPanel } from "./stream-panel";
 
 interface StreamsTableProps {
@@ -10,15 +20,11 @@ interface StreamsTableProps {
 }
 
 async function startStream(name: string) {
-  await fetch(`/api/streams/${encodeURIComponent(name)}/start`, {
-    method: "POST",
-  });
+  await fetch(`/api/streams/${encodeURIComponent(name)}/start`, { method: "POST" });
 }
 
 async function stopStream(name: string) {
-  await fetch(`/api/streams/${encodeURIComponent(name)}/stop`, {
-    method: "POST",
-  });
+  await fetch(`/api/streams/${encodeURIComponent(name)}/stop`, { method: "POST" });
 }
 
 async function startAll() {
@@ -39,65 +45,49 @@ export function StreamsTable({ streams }: StreamsTableProps) {
     <div className="flex flex-col gap-3">
       <div className="flex gap-2 justify-end">
         {hasStopped && (
-          <button
-            type="button"
-            onClick={startAll}
-            className="h-7.5 px-3 flex items-center gap-1.5 text-xs border border-border rounded-lg bg-surface hover:bg-accent/10 hover:border-accent text-text-dim hover:text-text transition-colors cursor-pointer"
-          >
+          <Button variant="outline" size="sm" onClick={startAll} className="gap-1.5">
             <Play size={12} />
             Start All
-          </button>
+          </Button>
         )}
         {hasRunning && (
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={stopAll}
-            className="h-7.5 px-3 flex items-center gap-1.5 text-xs border border-border rounded-lg bg-surface hover:bg-red/10 hover:border-red text-text-dim hover:text-red transition-colors cursor-pointer"
+            className="gap-1.5 hover:border-destructive hover:text-destructive hover:bg-destructive/10"
           >
             <Square size={12} />
             Stop All
-          </button>
+          </Button>
         )}
       </div>
-      <div className="bg-surface border border-border rounded-xl overflow-y-auto max-h-[50vh]">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="text-left px-5 py-3 text-[0.7rem] uppercase tracking-widest text-text-dim bg-surface2 border-b border-border sticky top-0 z-10">
-                Name
-              </th>
-              <th className="text-left px-5 py-3 text-[0.7rem] uppercase tracking-widest text-text-dim bg-surface2 border-b border-border sticky top-0 z-10">
-                Destination
-              </th>
-              <th className="text-left px-5 py-3 text-[0.7rem] uppercase tracking-widest text-text-dim bg-surface2 border-b border-border sticky top-0 z-10">
-                EPS
-              </th>
-              <th className="text-left px-5 py-3 text-[0.7rem] uppercase tracking-widest text-text-dim bg-surface2 border-b border-border sticky top-0 z-10">
-                Activity
-              </th>
-              <th className="text-right px-5 py-3 text-[0.7rem] uppercase tracking-widest text-text-dim bg-surface2 border-b border-border sticky top-0 z-10">
-                Total
-              </th>
-              <th className="text-center px-5 py-3 text-[0.7rem] uppercase tracking-widest text-text-dim bg-surface2 border-b border-border sticky top-0 z-10">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+
+      <ScrollArea className="max-h-[50vh] rounded-xl border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Name</TableHead>
+              <TableHead>Destination</TableHead>
+              <TableHead>EPS</TableHead>
+              <TableHead>Activity</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {streams.map((s) => (
               <StreamRow
                 key={s.name}
                 stream={s}
                 maxEps={maxEps}
                 isExpanded={expanded === s.name}
-                onToggle={() =>
-                  setExpanded((e) => (e === s.name ? null : s.name))
-                }
+                onToggle={() => setExpanded((e) => (e === s.name ? null : s.name))}
               />
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </ScrollArea>
     </div>
   );
 }
@@ -116,87 +106,103 @@ function StreamRow({
   const isRunning = stream.status === "running";
   const isError = stream.status === "error";
 
-  const dotColor = isRunning
-    ? "bg-green"
-    : isError
-      ? "bg-red"
-      : "bg-text-dim/30";
-
   return (
     <>
-      <tr
-        className={`cursor-pointer hover:bg-accent/5 ${isExpanded ? "bg-accent/10" : ""}`}
+      <TableRow
+        className={`cursor-pointer ${isExpanded ? "bg-accent/5" : ""}`}
         onClick={onToggle}
       >
-        <td className="px-5 py-3.5 text-sm border-b border-border">
+        <TableCell>
           <div className="flex items-center gap-2">
             <span
-              className={`text-[0.65rem] text-text-dim transition-transform ${isExpanded ? "rotate-90" : ""}`}
+              className={`text-[0.65rem] text-muted-foreground transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
             >
-              &#9654;
+              ▶
             </span>
-            <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+            <StatusDot status={stream.status} />
             <span className="flex flex-col">
               <span>{stream.name}</span>
               {isError && stream.error && (
-                <span className="text-[0.65rem] text-red truncate max-w-60">
+                <span className="text-[0.65rem] text-destructive truncate max-w-60">
                   {stream.error}
                 </span>
               )}
             </span>
           </div>
-        </td>
-        <td className="px-5 py-3.5 text-xs text-text-dim border-b border-border max-w-60 truncate">
+        </TableCell>
+
+        <TableCell className="text-xs text-muted-foreground max-w-60 truncate">
           {stream.destination}
-        </td>
-        <td className="px-5 py-3.5 text-sm font-semibold text-accent border-b border-border">
+        </TableCell>
+
+        <TableCell className="font-semibold text-primary">
           {formatNumber(stream.eps)}
-        </td>
-        <td className="px-5 py-3.5 border-b border-border">
-          <div className="w-[120px] h-1.5 bg-surface2 rounded-full overflow-hidden">
+        </TableCell>
+
+        <TableCell>
+          <div className="w-[120px] h-1.5 bg-secondary rounded-full overflow-hidden">
             <div
-              className="h-full bg-accent rounded-full transition-all duration-500"
+              className="h-full bg-primary rounded-full transition-all duration-500"
               style={{
                 width: `${Math.min(100, (stream.eps / maxEps) * 100)}%`,
                 minWidth: "2px",
               }}
             />
           </div>
-        </td>
-        <td className="px-5 py-3.5 text-sm text-text-dim text-right border-b border-border">
+        </TableCell>
+
+        <TableCell className="text-right text-muted-foreground">
           {formatNumber(stream.total)}
-        </td>
-        <td className="px-5 py-3.5 border-b border-border text-center">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isRunning) {
-                stopStream(stream.name);
-              } else {
-                startStream(stream.name);
-              }
-            }}
-            className={`inline-flex items-center justify-center w-7 h-7 rounded-md border transition-colors cursor-pointer ${
+        </TableCell>
+
+        <TableCell className="text-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`w-7 h-7 ${
               isRunning
-                ? "border-border hover:border-red hover:bg-red/10 text-text-dim hover:text-red"
-                : "border-border hover:border-accent hover:bg-accent/10 text-text-dim hover:text-accent"
+                ? "hover:text-destructive hover:bg-destructive/10"
+                : "hover:text-primary hover:bg-primary/10"
             }`}
             title={isRunning ? "Stop" : "Start"}
+            onClick={(e) => {
+              e.stopPropagation();
+              isRunning ? stopStream(stream.name) : startStream(stream.name);
+            }}
           >
             {isRunning ? <Square size={12} /> : <Play size={12} />}
-          </button>
-        </td>
-      </tr>
+          </Button>
+        </TableCell>
+      </TableRow>
+
       {isExpanded && (
-        <tr>
-          <td colSpan={6} className="p-0">
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={6} className="p-0">
             <StreamPanel name={stream.name} />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );
+}
+
+function StatusDot({ status }: { status: StreamData["status"] }) {
+  const cls =
+    status === "running"
+      ? "bg-green-400 animate-pulse"
+      : status === "error"
+        ? "bg-destructive"
+        : "bg-muted-foreground/30";
+  return <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cls}`} />;
+}
+
+// Unused export kept to avoid breaking any future Badge usage reference
+export function StreamStatusBadge({ status }: { status: StreamData["status"] }) {
+  if (status === "running")
+    return <Badge className="bg-green-400/20 text-green-400 border-green-400/30">running</Badge>;
+  if (status === "error")
+    return <Badge variant="destructive">error</Badge>;
+  return <Badge variant="secondary">stopped</Badge>;
 }
 
 function formatNumber(n: number): string {

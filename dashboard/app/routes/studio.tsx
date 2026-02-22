@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronRight, Download, FileText, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Download, FileText, Play, Plus, Trash2 } from "lucide-react";
 
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { ScrollArea } from "~/components/ui/scroll-area";
+import { Separator } from "~/components/ui/separator";
 import { RhaiEditor } from "~/components/rhai-editor";
 
 const LS_KEY = "rhai-studio-scripts";
@@ -27,10 +31,7 @@ emit(now_iso() + " INFO  [req=" + req_id + "] end");
 `;
 
 const PRESETS: { name: string; code: string }[] = [
-  {
-    name: "Java Request Trace",
-    code: DEFAULT_SCRIPT,
-  },
+  { name: "Java Request Trace", code: DEFAULT_SCRIPT },
   {
     name: "Simple Access Log",
     code: `let ip = fake_ipv4();
@@ -76,17 +77,6 @@ function persistScripts(scripts: SavedScript[]) {
   localStorage.setItem(LS_KEY, JSON.stringify(scripts));
 }
 
-function loadActiveCode(): string | null {
-  return localStorage.getItem(LS_ACTIVE);
-}
-
-function persistActiveCode(code: string) {
-  localStorage.setItem(LS_ACTIVE, code);
-}
-
-// ---------------------------------------------------------------------------
-// Download helper
-// ---------------------------------------------------------------------------
 function downloadFile(name: string, content: string) {
   const blob = new Blob([content], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
@@ -97,9 +87,6 @@ function downloadFile(name: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-// ---------------------------------------------------------------------------
-// File-tree sidebar icon helpers
-// ---------------------------------------------------------------------------
 const TreeChevron = ({ open }: { open: boolean }) => (
   <ChevronRight
     size={12}
@@ -107,11 +94,10 @@ const TreeChevron = ({ open }: { open: boolean }) => (
   />
 );
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 export default function StudioPage() {
-  const [code, setCode] = useState(() => loadActiveCode() || DEFAULT_SCRIPT);
+  const [code, setCode] = useState(
+    () => localStorage.getItem(LS_ACTIVE) || DEFAULT_SCRIPT
+  );
   const [activeName, setActiveName] = useState<string | null>(
     () => localStorage.getItem(LS_ACTIVE_NAME) ?? null
   );
@@ -127,37 +113,23 @@ export default function StudioPage() {
   const codeRef = useRef(code);
   codeRef.current = code;
 
-  // Persist active code
   useEffect(() => {
-    persistActiveCode(code);
+    localStorage.setItem(LS_ACTIVE, code);
   }, [code]);
 
-  // ---------------------------------------------------------------------------
-  // Run
-  // ---------------------------------------------------------------------------
   const runScript = useCallback(async () => {
-    const currentCode = codeRef.current;
     setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/script/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: currentCode,
-          samples: Math.max(1, Math.min(20, samples)),
-        }),
+        body: JSON.stringify({ code: codeRef.current, samples: Math.max(1, Math.min(20, samples)) }),
       });
-      if (!res.ok) {
-        setError(`Request failed: ${res.status}`);
-        setOutput("");
-        return;
-      }
+      if (!res.ok) { setError(`Request failed: ${res.status}`); setOutput(""); return; }
       const data = await res.json();
       setError(data.error || "");
-      setOutput(
-        Array.isArray(data.output) ? data.output.join("\n---\n") : ""
-      );
+      setOutput(Array.isArray(data.output) ? data.output.join("\n---\n") : "");
     } catch {
       setError("Request failed");
       setOutput("");
@@ -166,147 +138,90 @@ export default function StudioPage() {
     }
   }, [samples]);
 
-  // ---------------------------------------------------------------------------
-  // Save
-  // ---------------------------------------------------------------------------
-  const commitSave = useCallback(
-    (name: string) => {
-      if (!name.trim()) return;
-      const n = name.trim();
-      const updated = saved.filter((s) => s.name !== n);
-      updated.unshift({ name: n, code, updatedAt: Date.now() });
-      setSaved(updated);
-      persistScripts(updated);
-      setActiveName(n);
-      localStorage.setItem(LS_ACTIVE_NAME, n);
-      setShowSaveDialog(false);
-      setSaveName("");
-    },
-    [code, saved]
-  );
+  const commitSave = useCallback((name: string) => {
+    if (!name.trim()) return;
+    const n = name.trim();
+    const updated = saved.filter((s) => s.name !== n);
+    updated.unshift({ name: n, code, updatedAt: Date.now() });
+    setSaved(updated);
+    persistScripts(updated);
+    setActiveName(n);
+    localStorage.setItem(LS_ACTIVE_NAME, n);
+    setShowSaveDialog(false);
+    setSaveName("");
+  }, [code, saved]);
 
-  /** Ctrl+S: save to current name or open dialog */
   const handleSave = useCallback(() => {
-    if (activeName) {
-      commitSave(activeName);
-    } else {
-      setSaveName("");
-      setShowSaveDialog(true);
-    }
+    if (activeName) commitSave(activeName);
+    else { setSaveName(""); setShowSaveDialog(true); }
   }, [activeName, commitSave]);
 
-  // ---------------------------------------------------------------------------
-  // New / Load / Delete / Download
-  // ---------------------------------------------------------------------------
   const handleNew = useCallback(() => {
-    setCode("");
-    setActiveName(null);
+    setCode(""); setActiveName(null);
     localStorage.removeItem(LS_ACTIVE_NAME);
-    setOutput("");
-    setError("");
+    setOutput(""); setError("");
   }, []);
 
   const loadScript = useCallback((s: SavedScript) => {
-    setCode(s.code);
-    setActiveName(s.name);
+    setCode(s.code); setActiveName(s.name);
     localStorage.setItem(LS_ACTIVE_NAME, s.name);
-    setOutput("");
-    setError("");
+    setOutput(""); setError("");
   }, []);
 
-  const deleteScript = useCallback(
-    (name: string) => {
-      const updated = saved.filter((s) => s.name !== name);
-      setSaved(updated);
-      persistScripts(updated);
-      if (activeName === name) {
-        setActiveName(null);
-        localStorage.removeItem(LS_ACTIVE_NAME);
-      }
-    },
-    [saved, activeName]
-  );
+  const deleteScript = useCallback((name: string) => {
+    const updated = saved.filter((s) => s.name !== name);
+    setSaved(updated);
+    persistScripts(updated);
+    if (activeName === name) {
+      setActiveName(null);
+      localStorage.removeItem(LS_ACTIVE_NAME);
+    }
+  }, [saved, activeName]);
 
-  const downloadScript = useCallback((s: SavedScript) => {
-    downloadFile(s.name, s.code);
-  }, []);
-
-  const downloadCurrent = useCallback(() => {
-    const name = activeName || "script";
-    downloadFile(name, codeRef.current);
-  }, [activeName]);
-
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
-  const tabTitle = activeName
-    ? `${activeName}.rhai`
-    : "untitled.rhai";
+  const tabTitle = activeName ? `${activeName}.rhai` : "untitled.rhai";
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-0">
-      {/* ── Top toolbar ─────────────────────────────────────────────── */}
+      {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-[0.75rem] font-semibold uppercase tracking-widest text-text-dim">
+          <h2 className="text-[0.75rem] font-semibold uppercase tracking-widest text-muted-foreground">
             Rhai Studio
           </h2>
-          <span className="text-[0.72rem] text-text-dim/50 font-mono">{tabTitle}</span>
+          <span className="text-[0.72rem] text-muted-foreground/50 font-mono">{tabTitle}</span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Download current */}
-          <button
-            type="button"
-            onClick={downloadCurrent}
-            title="Download current script"
-            className="h-8 px-3 text-xs font-medium bg-surface2 text-text-dim border border-border rounded-lg hover:text-text cursor-pointer transition-colors flex items-center gap-1"
-          >
+          <Button variant="secondary" size="sm" onClick={() => downloadFile(activeName || "script", codeRef.current)} className="gap-1.5">
             <Download size={13} />
             Download
-          </button>
-
-          {/* Save */}
-          <button
-            type="button"
-            onClick={handleSave}
-            className="h-8 px-3 text-xs font-medium bg-surface2 text-text-dim border border-border rounded-lg hover:text-text cursor-pointer transition-colors"
-            title={activeName ? `Save to "${activeName}" (Ctrl+S)` : "Save script (Ctrl+S)"}
-          >
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleSave} title={activeName ? `Save to "${activeName}" (Ctrl+S)` : "Save script (Ctrl+S)"}>
             {activeName ? "Save" : "Save As…"}
-          </button>
-
-          <div className="w-px h-5 bg-border" />
-
-          <label className="text-[0.72rem] text-text-dim uppercase tracking-widest">
+          </Button>
+          <Separator orientation="vertical" className="h-5" />
+          <span className="text-[0.72rem] text-muted-foreground uppercase tracking-widest">
             Samples
-          </label>
-          <input
+          </span>
+          <Input
             type="number"
             min={1}
             max={20}
             value={samples}
             onChange={(e) => setSamples(Number(e.target.value))}
-            className="w-16 h-8 px-2 text-xs bg-surface2 border border-border rounded-lg text-text focus:outline-none focus:border-accent"
+            className="w-16 h-8 text-xs"
           />
-
-          <button
-            type="button"
-            onClick={runScript}
-            disabled={loading}
-            className="h-8 px-4 text-xs font-medium bg-accent/20 text-accent border border-accent/40 rounded-lg hover:bg-accent/30 disabled:opacity-50 cursor-pointer disabled:cursor-default transition-colors"
-            title="Run"
-          >
-            {loading ? "Running…" : "▶ Run"}
-          </button>
+          <Button onClick={runScript} disabled={loading} size="sm" className="gap-1.5">
+            <Play size={13} />
+            {loading ? "Running…" : "Run"}
+          </Button>
         </div>
       </div>
 
-      {/* ── Save-as dialog ───────────────────────────────────────────── */}
+      {/* Save-as inline dialog */}
       {showSaveDialog && (
-        <div className="flex items-center gap-2 px-3 py-2 mb-3 bg-surface2 border border-border rounded-lg">
-          <span className="text-xs text-text-dim shrink-0">Save as:</span>
-          <input
-            type="text"
+        <div className="flex items-center gap-2 px-3 py-2 mb-3 bg-secondary border border-border rounded-lg">
+          <span className="text-xs text-muted-foreground shrink-0">Save as:</span>
+          <Input
             value={saveName}
             onChange={(e) => setSaveName(e.target.value)}
             onKeyDown={(e) => {
@@ -314,153 +229,108 @@ export default function StudioPage() {
               if (e.key === "Escape") setShowSaveDialog(false);
             }}
             placeholder="script name…"
-            className="flex-1 h-7 px-2 text-xs bg-bg border border-border rounded text-text focus:outline-none focus:border-accent font-mono"
+            className="flex-1 h-7 text-xs font-mono"
             // biome-ignore lint/a11y/noAutofocus: intentional dialog autofocus
             autoFocus
           />
-          <button
-            type="button"
-            onClick={() => commitSave(saveName)}
-            disabled={!saveName.trim()}
-            className="h-7 px-3 text-xs font-medium bg-accent/20 text-accent border border-accent/40 rounded hover:bg-accent/30 disabled:opacity-50 cursor-pointer disabled:cursor-default transition-colors"
-          >
+          <Button size="sm" className="h-7 px-3 text-xs" onClick={() => commitSave(saveName)} disabled={!saveName.trim()}>
             Save
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowSaveDialog(false)}
-            className="h-7 px-2 text-xs text-text-dim hover:text-text cursor-pointer"
-          >
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setShowSaveDialog(false)}>
             Cancel
-          </button>
+          </Button>
         </div>
       )}
 
-      {/* ── Main split: sidebar + editor ────────────────────────────── */}
+      {/* Main split: sidebar + editor */}
       <div className="flex flex-1 min-h-0 gap-3">
-        {/* ── File-tree sidebar ─────────────────────────────────── */}
-        <aside className="w-52 shrink-0 flex flex-col bg-surface border border-border rounded-lg overflow-hidden text-[0.72rem]">
-          {/* Sidebar header */}
+        {/* Sidebar */}
+        <aside className="w-52 shrink-0 flex flex-col bg-card border border-border rounded-lg overflow-hidden text-[0.72rem]">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-            <span className="uppercase tracking-widest text-text-dim font-semibold">Explorer</span>
-            <button
-              type="button"
-              onClick={handleNew}
-              title="New file (Ctrl+N)"
-              className="p-0.5 text-text-dim hover:text-accent cursor-pointer transition-colors"
-            >
+            <span className="uppercase tracking-widest text-muted-foreground font-semibold">Explorer</span>
+            <Button variant="ghost" size="icon" className="w-6 h-6" onClick={handleNew} title="New file (Ctrl+N)">
               <Plus size={13} />
-            </button>
+            </Button>
           </div>
 
-          <div className="flex-1 overflow-y-auto py-1">
-            {/* ── Presets section ─────────────────────────────── */}
-            <button
-              type="button"
-              onClick={() => setPresetsOpen((v) => !v)}
-              className="w-full flex items-center gap-1 px-2 py-1 text-text-dim/70 hover:text-text-dim cursor-pointer uppercase tracking-wider font-semibold select-none"
-            >
-              <TreeChevron open={presetsOpen} />
-              Presets
-            </button>
-            {presetsOpen && (
-              <ul>
-                {PRESETS.map((p) => (
-                  <li key={p.name}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCode(p.code);
-                        setActiveName(null);
-                        localStorage.removeItem(LS_ACTIVE_NAME);
-                      }}
-                      className="w-full flex items-center gap-1.5 px-3 py-1 text-left text-text-dim hover:bg-bg hover:text-text cursor-pointer transition-colors truncate"
-                    >
-                      <FileText size={13} className="shrink-0 opacity-60" />
-                      <span className="truncate">{p.name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {/* ── Saved scripts section ───────────────────────── */}
-            <button
-              type="button"
-              onClick={() => setScriptsOpen((v) => !v)}
-              className="w-full flex items-center gap-1 px-2 py-1 mt-1 text-text-dim/70 hover:text-text-dim cursor-pointer uppercase tracking-wider font-semibold select-none"
-            >
-              <TreeChevron open={scriptsOpen} />
-              Saved ({saved.length})
-            </button>
-            {scriptsOpen && (
-              <ul>
-                {saved.length === 0 && (
-                  <li className="px-5 py-1 text-text-dim/50 italic">No scripts yet</li>
-                )}
-                {saved.map((s) => (
-                  <li key={s.name}>
-                    <div
-                      className={`group flex items-center gap-1 px-3 py-1 cursor-pointer transition-colors ${
-                        activeName === s.name
-                          ? "bg-accent/15 text-accent"
-                          : "text-text-dim hover:bg-bg hover:text-text"
-                      }`}
-                    >
-                      {/* File name (clickable) */}
+          <ScrollArea className="flex-1">
+            <div className="py-1">
+              {/* Presets */}
+              <button
+                type="button"
+                onClick={() => setPresetsOpen((v) => !v)}
+                className="w-full flex items-center gap-1 px-2 py-1 text-muted-foreground/70 hover:text-muted-foreground cursor-pointer uppercase tracking-wider font-semibold select-none"
+              >
+                <TreeChevron open={presetsOpen} />
+                Presets
+              </button>
+              {presetsOpen && (
+                <ul>
+                  {PRESETS.map((p) => (
+                    <li key={p.name}>
                       <button
                         type="button"
-                        onClick={() => loadScript(s)}
-                        className="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer"
+                        onClick={() => { setCode(p.code); setActiveName(null); localStorage.removeItem(LS_ACTIVE_NAME); }}
+                        className="w-full flex items-center gap-1.5 px-3 py-1 text-left text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer transition-colors truncate"
                       >
                         <FileText size={13} className="shrink-0 opacity-60" />
-                        <span className="truncate font-mono">{s.name}</span>
+                        <span className="truncate">{p.name}</span>
                       </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-                      {/* Action buttons – visible on hover or when active */}
-                      <div className={`flex items-center gap-0.5 shrink-0 ${activeName === s.name ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
+              {/* Saved scripts */}
+              <button
+                type="button"
+                onClick={() => setScriptsOpen((v) => !v)}
+                className="w-full flex items-center gap-1 px-2 py-1 mt-1 text-muted-foreground/70 hover:text-muted-foreground cursor-pointer uppercase tracking-wider font-semibold select-none"
+              >
+                <TreeChevron open={scriptsOpen} />
+                Saved ({saved.length})
+              </button>
+              {scriptsOpen && (
+                <ul>
+                  {saved.length === 0 && (
+                    <li className="px-5 py-1 text-muted-foreground/50 italic">No scripts yet</li>
+                  )}
+                  {saved.map((s) => (
+                    <li key={s.name}>
+                      <div className={`group flex items-center gap-1 px-3 py-1 cursor-pointer transition-colors ${activeName === s.name ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}>
                         <button
                           type="button"
-                          onClick={() => downloadScript(s)}
-                          title={`Download ${s.name}.rhai`}
-                          className="p-0.5 hover:text-accent cursor-pointer"
+                          onClick={() => loadScript(s)}
+                          className="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer"
                         >
-                          <Download size={13} />
+                          <FileText size={13} className="shrink-0 opacity-60" />
+                          <span className="truncate font-mono">{s.name}</span>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteScript(s.name)}
-                          title="Delete"
-                          className="p-0.5 hover:text-red cursor-pointer"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        <div className={`flex items-center gap-0.5 shrink-0 ${activeName === s.name ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
+                          <button type="button" onClick={() => downloadFile(s.name, s.code)} title={`Download ${s.name}.rhai`} className="p-0.5 hover:text-primary cursor-pointer">
+                            <Download size={13} />
+                          </button>
+                          <button type="button" onClick={() => deleteScript(s.name)} title="Delete" className="p-0.5 hover:text-destructive cursor-pointer">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </ScrollArea>
         </aside>
 
-        {/* ── Editor + Output ──────────────────────────────────── */}
+        {/* Editor + Output */}
         <div className="flex flex-col flex-1 min-h-0 gap-3">
           <div className="flex-[2] min-h-[200px]">
-            <RhaiEditor
-              value={code}
-              onChange={setCode}
-              onSave={handleSave}
-              onNew={handleNew}
-            />
+            <RhaiEditor value={code} onChange={setCode} onSave={handleSave} onNew={handleNew} />
           </div>
-
-          {/* Output panel */}
           <div className="flex-1 flex flex-col min-h-[140px]">
-            {error && (
-              <div className="text-xs text-red mb-2 px-1">{error}</div>
-            )}
-            <pre className="flex-1 border border-border rounded-lg bg-bg text-green p-3 text-[0.76rem] leading-relaxed whitespace-pre-wrap break-all overflow-auto">
+            {error && <p className="text-xs text-destructive mb-2 px-1">{error}</p>}
+            <pre className="flex-1 border border-border rounded-lg bg-background text-green-400 p-3 text-[0.76rem] leading-relaxed whitespace-pre-wrap break-all overflow-auto">
               {output || "Click ▶ Run to execute · Ctrl+S to save · Ctrl+N for new file"}
             </pre>
           </div>
@@ -469,4 +339,3 @@ export default function StudioPage() {
     </div>
   );
 }
-
