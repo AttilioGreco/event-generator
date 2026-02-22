@@ -46,7 +46,7 @@ fmt-fix:
 
 check: fmt lint test
 
-# Full pre-release checklist: fmt, clippy, tests, release build, dashboard build, docker build
+# Full pre-release checklist: dashboard build, fmt, clippy, tests, release build, docker build
 pre-release:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -61,22 +61,22 @@ pre-release:
     echo "Branch: $BRANCH"
     echo "Uncommitted changes: $UNCOMMITTED"
     echo ""
-    echo "[1/6] cargo fmt --check"
+    echo "[1/6] dashboard build (prerequisite for Rust compilation)"
+    cd dashboard && bun install --frozen-lockfile && bun run build
+    cd ..
+    echo "  OK"
+    echo "[2/6] cargo fmt --check"
     cargo fmt --check
     echo "  OK"
-    echo "[2/6] cargo clippy -- -D warnings"
+    echo "[3/6] cargo clippy -- -D warnings"
     cargo clippy -- -D warnings
     echo "  OK"
-    echo "[3/6] cargo test"
+    echo "[4/6] cargo test"
     cargo test
     echo "  OK"
-    echo "[4/6] cargo build --release"
+    echo "[5/6] cargo build --release"
     cargo build --release
     echo "  OK"
-    echo "[5/6] dashboard build"
-    cd dashboard && bun run build
-    echo "  OK"
-    cd ..
     echo "[6/6] docker build"
     docker build -t event-generator:pre-release-check .
     echo "  OK"
