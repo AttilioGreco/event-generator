@@ -56,6 +56,9 @@ jobs:
       - name: Smoke test image
         run: docker run --rm event-generator-debug:latest --help
 
+      - name: Set lowercase repository name
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Build and push test image (GHCR)
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
@@ -63,5 +66,5 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64
-          tags: ghcr.io/${{ github.repository }}:test-${{ github.sha }}
+          tags: ghcr.io/${{ env.REPO_LC }}:test-${{ github.sha }}
           push: true
