@@ -19,12 +19,27 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
-use crate::config::model::FormatConfig;
-use crate::config::model::WebConfig;
+use crate::config::model::{FormatConfig, OutputConfig, WebConfig};
 use crate::engine::manager::{StreamManager, StreamStatus};
 use crate::format::{EventContext, build_formatter};
+use crate::output::build_sink;
 
 const MAX_SAMPLES: usize = 20;
+
+#[derive(Debug, Deserialize)]
+struct PingRequest {
+    format: FormatConfig,
+    output: OutputConfig,
+    message: String,
+}
+
+#[derive(Debug, Serialize)]
+struct PingResponse {
+    success: bool,
+    event: Option<String>,
+    error: Option<String>,
+    elapsed_ms: u64,
+}
 
 #[derive(Clone)]
 struct AppState {
@@ -95,6 +110,7 @@ pub async fn run_web_server(
     };
 
     let app = Router::new()
+        .route("/api/ping", post(ping_handler))
         .route("/api/debug/render", post(debug_render_handler))
         .route("/api/script/run", post(script_run_handler))
         .route("/api/config", get(get_config_handler))
@@ -343,6 +359,82 @@ async fn ws_stream_handler(
 
     ws.on_upgrade(move |socket| handle_ws_stream(socket, stream))
         .into_response()
+}
+
+// --- Ping handler ---
+
+async fn ping_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<PingRequest>,
+) -> impl IntoResponse {
+    if let Err(resp) = check_auth(&state.auth, &headers) {
+        return resp;
+    }
+
+    if matches!(req.output.output_type.as_str(), "stdout" | "file") {
+        return Json(PingResponse {
+            success: false,
+            event: None,
+            error: Some("stdout and file outputs are not supported in the pinger".into()),
+            elapsed_ms: 0,
+        })
+        .into_response();
+    }
+
+    let formatter = match build_formatter(&req.format) {
+        Ok(f) => f,
+        Err(e) => {
+            return Json(PingResponse {
+                success: false,
+                event: None,
+                error: Some(format!("Format error: {e:#}")),
+                elapsed_ms: 0,
+            })
+            .into_response();
+        }
+    };
+
+    let mut ctx = EventContext::new("pinger".into(), 1);
+    if !req.message.is_empty() {
+        ctx.fields.insert("message".into(), req.message);
+    }
+    let event_text = formatter.format(&ctx);
+
+    let start = std::time::Instant::now();
+    let mut sink = match build_sink(&req.output).await {
+        Ok(s) => s,
+        Err(e) => {
+            return Json(PingResponse {
+                success: false,
+                event: Some(event_text),
+                error: Some(format!("Connection failed: {e:#}")),
+                elapsed_ms: start.elapsed().as_millis() as u64,
+            })
+            .into_response();
+        }
+    };
+
+    if let Err(e) = sink.send(&event_text).await {
+        return Json(PingResponse {
+            success: false,
+            event: Some(event_text),
+            error: Some(format!("Send failed: {e:#}")),
+            elapsed_ms: start.elapsed().as_millis() as u64,
+        })
+        .into_response();
+    }
+
+    let _ = sink.flush().await;
+    let _ = sink.close().await;
+
+    Json(PingResponse {
+        success: true,
+        event: Some(event_text),
+        error: None,
+        elapsed_ms: start.elapsed().as_millis() as u64,
+    })
+    .into_response()
 }
 
 // --- Debug/Script handlers ---

@@ -37,20 +37,20 @@ auto_open_browser = false  # Open dashboard URL automatically on startup
 
 
 # ─── Stream 1: syslog_rfc5424 to TCP ───
-[[streams]]
-name = "access-log"
-enabled = true
-
-[streams.format]
-type = "syslog_rfc5424"
-
-[streams.output]
-type = "tcp"
-host = "filebeat"
-port = 9000
-
-[streams.rate]
-eps = 3
+# q[[streams]]
+# name = "access-log"
+# enabled = true
+#
+# [streams.format]
+# type = "syslog_rfc5424"
+#
+# [streams.output]
+# type = "tcp"
+# host = "filebeat"
+# port = 9000
+#
+# [streams.rate]
+# eps = 3
 
 
 # ─── Stream 2: syslog_rfc3164 to UDP ───

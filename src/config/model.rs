@@ -6,6 +6,7 @@ use serde::Deserialize;
 pub struct AppConfig {
     pub defaults: Option<Defaults>,
     pub web: Option<WebConfig>,
+    #[serde(default)]
     pub streams: Vec<StreamConfig>,
 }
 

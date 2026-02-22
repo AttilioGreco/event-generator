@@ -4,10 +4,6 @@ use crate::error::AppError;
 pub fn validate(config: &AppConfig) -> Result<(), AppError> {
     let mut errors: Vec<String> = Vec::new();
 
-    if config.streams.is_empty() {
-        errors.push("at least one [[streams]] must be defined".into());
-    }
-
     for (i, stream) in config.streams.iter().enumerate() {
         let prefix = format!("streams[{}] ('{}')", i, stream.name);
 
@@ -160,13 +156,18 @@ mod tests {
     }
 
     #[test]
-    fn rejects_empty_streams() {
+    fn allows_empty_streams() {
         let toml = r#"
             streams = []
         "#;
         let config = AppConfig::from_toml(toml).unwrap();
-        let err = validate(&config).unwrap_err();
-        assert!(err.to_string().contains("at least one"));
+        assert!(validate(&config).is_ok());
+    }
+
+    #[test]
+    fn allows_missing_streams_key() {
+        let config = AppConfig::from_toml("").unwrap();
+        assert!(validate(&config).is_ok());
     }
 
     #[test]
