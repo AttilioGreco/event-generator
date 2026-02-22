@@ -33,10 +33,6 @@ run CONFIG="config/example.toml":
     cargo run -- --config {{CONFIG}}
 
 test:
-    just test-only
-    just docker-push-test
-
-test-only:
     cargo test
 
 lint:
@@ -73,7 +69,7 @@ docker-build-debug:
     docker build --platform linux/amd64 -t event-generator-debug:latest .
 
 docker-run CONFIG="config/example.toml":
-    docker run --rm -v "$(pwd)/{{CONFIG}}:/config.toml" event-generator --config /config.toml
+    docker run --rm -v "$PWD/{{CONFIG}}:/config.toml" event-generator --config /config.toml
 
 docker-run-debug CONFIG="config/example.toml":
-    docker run --rm -v "$(pwd)/{{CONFIG}}:/config.toml" event-generator-debug:latest --config /config.toml
+    docker run --rm -v "$PWD/{{CONFIG}}:/config.toml" event-generator-debug:latest --config /config.toml
