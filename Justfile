@@ -48,42 +48,53 @@ check: fmt lint test
 
 # Full pre-release checklist: fmt, clippy, tests, release build, dashboard build, docker build
 pre-release:
-    @echo "=== Pre-release checklist ==="
-    @echo ""
-    @echo "Current version: $$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)"
-    @echo "Latest local tag: $$(git describe --tags --abbrev=0 2>/dev/null || echo 'no tags')"
-    @echo "Branch: $$(git branch --show-current)"
-    @echo "Uncommitted changes: $$(git status --short | wc -l | tr -d ' ')"
-    @echo ""
-    @echo "[1/6] cargo fmt --check"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "=== Pre-release checklist ==="
+    echo ""
+    VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+    TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo 'no tags')
+    BRANCH=$(git branch --show-current)
+    UNCOMMITTED=$(git status --short | wc -l | tr -d ' ')
+    echo "Current version: $VERSION"
+    echo "Latest local tag: $TAG"
+    echo "Branch: $BRANCH"
+    echo "Uncommitted changes: $UNCOMMITTED"
+    echo ""
+    echo "[1/6] cargo fmt --check"
     cargo fmt --check
-    @echo "  OK"
-    @echo "[2/6] cargo clippy -- -D warnings"
+    echo "  OK"
+    echo "[2/6] cargo clippy -- -D warnings"
     cargo clippy -- -D warnings
-    @echo "  OK"
-    @echo "[3/6] cargo test"
+    echo "  OK"
+    echo "[3/6] cargo test"
     cargo test
-    @echo "  OK"
-    @echo "[4/6] cargo build --release"
+    echo "  OK"
+    echo "[4/6] cargo build --release"
     cargo build --release
-    @echo "  OK"
-    @echo "[5/6] dashboard build"
+    echo "  OK"
+    echo "[5/6] dashboard build"
     cd dashboard && bun run build
-    @echo "  OK"
-    @echo "[6/6] docker build"
+    echo "  OK"
+    cd ..
+    echo "[6/6] docker build"
     docker build -t event-generator:pre-release-check .
-    @echo "  OK"
-    @echo ""
-    @echo "=== All checks passed! Ready for release. ==="
+    echo "  OK"
+    echo ""
+    echo "=== All checks passed! Ready for release. ==="
 
 release: pre-release
     bash scripts/release.sh
 
 release-info:
-    @echo "Current version: $$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)"
-    @echo "Latest local tag: $$(git describe --tags --abbrev=0 2>/dev/null || echo 'no tags')"
-    @echo ""
-    @echo "GitHub workflow file: .github/workflows/release.yml"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+    TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo 'no tags')
+    echo "Current version: $VERSION"
+    echo "Latest local tag: $TAG"
+    echo ""
+    echo "GitHub workflow file: .github/workflows/release.yml"
 
 docker-build:
     docker build -t event-generator .
