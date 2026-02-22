@@ -3,11 +3,15 @@ ENV NODE_ENV=production
 
 WORKDIR /dashboard
 
+# Install Node.js for the build step - bun's react-dom/server resolution
+# lacks renderToPipeableStream needed by react-router's writeBundle hook
+RUN apk add --no-cache nodejs
+
 COPY dashboard/package.json dashboard/bun.lock* ./
 RUN bun install
 
 COPY dashboard/ ./
-RUN bun run build
+RUN node node_modules/.bin/react-router build
 
 FROM rust:1.93-alpine3.23 AS chef
 WORKDIR /app
