@@ -58,7 +58,10 @@ impl TcpSink {
 
         for attempt in 0..MAX_RETRIES {
             let backoff = Duration::from_millis(BASE_BACKOFF_MS * 2u64.pow(attempt));
-            eprintln!("[tcp://{addr}] reconnect attempt {} in {backoff:?}", attempt + 1);
+            eprintln!(
+                "[tcp://{addr}] reconnect attempt {} in {backoff:?}",
+                attempt + 1
+            );
             tokio::time::sleep(backoff).await;
 
             match TcpStream::connect(&addr).await {
@@ -68,7 +71,10 @@ impl TcpSink {
                     return Ok(());
                 }
                 Err(e) => {
-                    eprintln!("[tcp://{addr}] reconnect attempt {} failed: {e}", attempt + 1);
+                    eprintln!(
+                        "[tcp://{addr}] reconnect attempt {} failed: {e}",
+                        attempt + 1
+                    );
                 }
             }
         }

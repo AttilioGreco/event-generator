@@ -40,7 +40,11 @@ impl WaveModulator {
             WaveShape::Sine => (1.0 + (t * 2.0 * PI).sin()) / 2.0,
             WaveShape::Sawtooth => t,
             WaveShape::Square => {
-                if t < 0.5 { 1.0 } else { 0.0 }
+                if t < 0.5 {
+                    1.0
+                } else {
+                    0.0
+                }
             }
         };
 
@@ -74,7 +78,10 @@ mod tests {
             .with_start_time(start - Duration::from_secs(1));
         // t=1s in 4s period -> t_norm=0.25, sin(PI/2)=1, normalized=1.0, eps=100
         let eps = wave.current_eps();
-        assert!((eps - 100.0).abs() < 5.0, "at peak expected ~100, got {eps}");
+        assert!(
+            (eps - 100.0).abs() < 5.0,
+            "at peak expected ~100, got {eps}"
+        );
 
         let wave = WaveModulator::new(WaveShape::Sine, 4.0, 0.0, 100.0)
             .with_start_time(start - Duration::from_secs(3));
@@ -108,13 +115,19 @@ mod tests {
             .with_start_time(start - Duration::from_secs(2));
         // t=2s in 10s -> t_norm=0.2 < 0.5, normalized=1.0, eps=1000
         let eps = wave.current_eps();
-        assert!((eps - 1000.0).abs() < 5.0, "first half expected ~1000, got {eps}");
+        assert!(
+            (eps - 1000.0).abs() < 5.0,
+            "first half expected ~1000, got {eps}"
+        );
 
         let wave = WaveModulator::new(WaveShape::Square, 10.0, 100.0, 1000.0)
             .with_start_time(start - Duration::from_secs(7));
         // t=7s in 10s -> t_norm=0.7 >= 0.5, normalized=0.0, eps=100
         let eps = wave.current_eps();
-        assert!((eps - 100.0).abs() < 5.0, "second half expected ~100, got {eps}");
+        assert!(
+            (eps - 100.0).abs() < 5.0,
+            "second half expected ~100, got {eps}"
+        );
     }
 
     #[test]
@@ -122,7 +135,10 @@ mod tests {
         let wave = WaveModulator::new(WaveShape::Sine, 10.0, 500.0, 500.0);
         for _ in 0..10 {
             let eps = wave.current_eps();
-            assert!((eps - 500.0).abs() < 0.01, "expected constant 500, got {eps}");
+            assert!(
+                (eps - 500.0).abs() < 0.01,
+                "expected constant 500, got {eps}"
+            );
         }
     }
 }

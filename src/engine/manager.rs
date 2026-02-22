@@ -376,8 +376,7 @@ impl StreamManager {
                     stream_config.name
                 );
                 let dest = destination_label(&stream_config.output);
-                let stats =
-                    Arc::new(StreamStats::new(stream_config.name.clone(), dest));
+                let stats = Arc::new(StreamStats::new(stream_config.name.clone(), dest));
                 let token = {
                     let inner = self.inner.read().await;
                     inner.global_cancel.child_token()
@@ -422,9 +421,9 @@ impl StreamManager {
             )
         })?;
 
-        let sink = build_sink(&stream_config.output).await.with_context(|| {
-            format!("failed to build sink for stream '{}'", stream_config.name)
-        })?;
+        let sink = build_sink(&stream_config.output)
+            .await
+            .with_context(|| format!("failed to build sink for stream '{}'", stream_config.name))?;
 
         let eps = stream_config
             .rate
@@ -462,8 +461,15 @@ impl StreamManager {
         let stats_clone = Arc::clone(&stats);
 
         let join_handle = tokio::spawn(async move {
-            if let Err(e) = run_stream(name.clone(), formatter, sink, rate, stats_clone, token_clone)
-                .await
+            if let Err(e) = run_stream(
+                name.clone(),
+                formatter,
+                sink,
+                rate,
+                stats_clone,
+                token_clone,
+            )
+            .await
             {
                 eprintln!("[{name}] stream error: {e}");
             }

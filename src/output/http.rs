@@ -82,11 +82,7 @@ impl HttpSink {
         match request.send().await {
             Ok(response) => {
                 if !response.status().is_success() {
-                    eprintln!(
-                        "[{}] server returned {}",
-                        self.url,
-                        response.status()
-                    );
+                    eprintln!("[{}] server returned {}", self.url, response.status());
                 }
             }
             Err(e) => {

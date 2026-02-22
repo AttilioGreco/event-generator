@@ -25,8 +25,8 @@ async fn main() -> Result<()> {
         .with_context(|| format!("failed to read config file: {}", cli.config.display()))?;
 
     // Validate config early to fail fast
-    let config = AppConfig::from_toml(&config_content)
-        .with_context(|| "failed to parse TOML config")?;
+    let config =
+        AppConfig::from_toml(&config_content).with_context(|| "failed to parse TOML config")?;
     validate(&config).with_context(|| "config validation failed")?;
 
     let cancel = CancellationToken::new();

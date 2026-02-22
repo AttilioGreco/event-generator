@@ -82,10 +82,10 @@ pub fn validate(config: &AppConfig) -> Result<(), AppError> {
                     "{prefix}: format type 'script' requires 'script_file' or 'script_inline'"
                 ));
             }
-            if let Some(max_ops) = stream.format.max_operations {
-                if max_ops == 0 {
-                    errors.push(format!("{prefix}: max_operations must be > 0"));
-                }
+            if let Some(max_ops) = stream.format.max_operations
+                && max_ops == 0
+            {
+                errors.push(format!("{prefix}: max_operations must be > 0"));
             }
         }
 

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
 
+use fake::Fake;
 use fake::faker::internet::en::{IPv4, IPv6, UserAgent, Username};
 use fake::faker::name::en::Name;
-use fake::Fake;
 use rand::Rng;
 
 pub struct FakeDataProvider;
@@ -30,11 +30,23 @@ impl FakeDataProvider {
         fields.insert("hostname".into(), Self::hostname(&mut rng));
         fields.insert("http_method".into(), Self::http_method(&mut rng));
         fields.insert("http_path".into(), Self::http_path(&mut rng));
-        fields.insert("http_status".into(), Self::http_status(&mut rng).to_string());
-        fields.insert("http_bytes".into(), rng.random_range(64u32..65535).to_string());
+        fields.insert(
+            "http_status".into(),
+            Self::http_status(&mut rng).to_string(),
+        );
+        fields.insert(
+            "http_bytes".into(),
+            rng.random_range(64u32..65535).to_string(),
+        );
         fields.insert("log_level".into(), Self::log_level(&mut rng));
-        fields.insert("src_port".into(), rng.random_range(1024u16..65535).to_string());
-        fields.insert("dst_port".into(), Self::well_known_port(&mut rng).to_string());
+        fields.insert(
+            "src_port".into(),
+            rng.random_range(1024u16..65535).to_string(),
+        );
+        fields.insert(
+            "dst_port".into(),
+            Self::well_known_port(&mut rng).to_string(),
+        );
         fields.insert("pid".into(), rng.random_range(1000u32..65535).to_string());
         fields.insert("thread_name".into(), Self::thread_name(&mut rng));
         fields.insert("java_class".into(), Self::java_class(&mut rng));
@@ -50,7 +62,9 @@ impl FakeDataProvider {
     }
 
     fn hostname(rng: &mut impl Rng) -> String {
-        let prefixes = ["web", "app", "db", "srv", "gw", "fw", "proxy", "cache", "auth", "api"];
+        let prefixes = [
+            "web", "app", "db", "srv", "gw", "fw", "proxy", "cache", "auth", "api",
+        ];
         let idx = rng.random_range(0..prefixes.len());
         let num = rng.random_range(1u16..99);
         format!("{}-{num:02}", prefixes[idx])
@@ -72,39 +86,65 @@ impl FakeDataProvider {
 
     fn http_path(rng: &mut impl Rng) -> String {
         let paths = [
-            "/", "/index.html", "/api/v1/users", "/api/v1/orders",
-            "/api/v2/products", "/login", "/logout", "/health",
-            "/metrics", "/api/v1/search", "/static/css/main.css",
-            "/static/js/app.js", "/favicon.ico", "/api/v1/auth/token",
-            "/dashboard", "/admin/settings", "/api/v1/events",
-            "/api/v1/notifications", "/profile", "/register",
+            "/",
+            "/index.html",
+            "/api/v1/users",
+            "/api/v1/orders",
+            "/api/v2/products",
+            "/login",
+            "/logout",
+            "/health",
+            "/metrics",
+            "/api/v1/search",
+            "/static/css/main.css",
+            "/static/js/app.js",
+            "/favicon.ico",
+            "/api/v1/auth/token",
+            "/dashboard",
+            "/admin/settings",
+            "/api/v1/events",
+            "/api/v1/notifications",
+            "/profile",
+            "/register",
         ];
         let idx = rng.random_range(0..paths.len());
         paths[idx].into()
     }
 
     fn http_status(rng: &mut impl Rng) -> u16 {
-        let statuses = [200, 200, 200, 200, 201, 204, 301, 302, 304, 400, 401, 403, 404, 404, 500, 502, 503];
+        let statuses = [
+            200, 200, 200, 200, 201, 204, 301, 302, 304, 400, 401, 403, 404, 404, 500, 502, 503,
+        ];
         let idx = rng.random_range(0..statuses.len());
         statuses[idx]
     }
 
     fn log_level(rng: &mut impl Rng) -> String {
-        let levels = ["TRACE", "DEBUG", "INFO", "INFO", "INFO", "WARN", "ERROR", "FATAL"];
+        let levels = [
+            "TRACE", "DEBUG", "INFO", "INFO", "INFO", "WARN", "ERROR", "FATAL",
+        ];
         let idx = rng.random_range(0..levels.len());
         levels[idx].into()
     }
 
     fn well_known_port(rng: &mut impl Rng) -> u16 {
-        let ports = [22, 53, 80, 443, 514, 1433, 3306, 3389, 5432, 6379, 8080, 8443, 9200, 27017];
+        let ports = [
+            22, 53, 80, 443, 514, 1433, 3306, 3389, 5432, 6379, 8080, 8443, 9200, 27017,
+        ];
         let idx = rng.random_range(0..ports.len());
         ports[idx]
     }
 
     fn thread_name(rng: &mut impl Rng) -> String {
         let names = [
-            "http-nio-8080-exec", "pool-1-thread", "main", "worker",
-            "scheduler", "async-dispatch", "kafka-consumer", "grpc-server",
+            "http-nio-8080-exec",
+            "pool-1-thread",
+            "main",
+            "worker",
+            "scheduler",
+            "async-dispatch",
+            "kafka-consumer",
+            "grpc-server",
         ];
         let idx = rng.random_range(0..names.len());
         let num = rng.random_range(1u16..20);
@@ -167,7 +207,9 @@ impl FakeDataProvider {
     }
 
     fn action(rng: &mut impl Rng) -> String {
-        let actions = ["allow", "deny", "drop", "reject", "accept", "block", "redirect"];
+        let actions = [
+            "allow", "deny", "drop", "reject", "accept", "block", "redirect",
+        ];
         let idx = rng.random_range(0..actions.len());
         actions[idx].into()
     }
@@ -189,10 +231,24 @@ mod tests {
         FakeDataProvider::populate(&mut fields);
 
         let expected_keys = [
-            "src_ip", "dst_ip", "hostname", "username", "http_method",
-            "http_path", "http_status", "user_agent", "log_level",
-            "src_port", "dst_port", "pid", "thread_name", "java_class",
-            "message", "protocol", "action", "http_bytes",
+            "src_ip",
+            "dst_ip",
+            "hostname",
+            "username",
+            "http_method",
+            "http_path",
+            "http_status",
+            "user_agent",
+            "log_level",
+            "src_port",
+            "dst_port",
+            "pid",
+            "thread_name",
+            "java_class",
+            "message",
+            "protocol",
+            "action",
+            "http_bytes",
         ];
 
         for key in expected_keys {

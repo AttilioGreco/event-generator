@@ -12,10 +12,7 @@ pub struct SyslogRfc5424Formatter {
 impl SyslogRfc5424Formatter {
     pub fn new(config: &FormatConfig) -> Self {
         Self {
-            facility: config
-                .facility
-                .clone()
-                .unwrap_or_else(|| "local0".into()),
+            facility: config.facility.clone().unwrap_or_else(|| "local0".into()),
             severity: config.severity.clone().unwrap_or_else(|| "info".into()),
             app_name: config
                 .app_name
@@ -42,7 +39,7 @@ impl SyslogRfc5424Formatter {
             .fields
             .get("message")
             .cloned()
-            .unwrap_or_else(|| random_message());
+            .unwrap_or_else(random_message);
 
         // RFC 5424: <PRI>VERSION TIMESTAMP HOSTNAME APP-NAME PROCID MSGID STRUCTURED-DATA MSG
         format!(
@@ -150,7 +147,10 @@ mod tests {
         let output = formatter.format(&ctx);
 
         // RFC 5424: <PRI>VERSION TIMESTAMP HOSTNAME APP-NAME PROCID MSGID SD MSG
-        assert!(output.starts_with("<134>1 "), "expected PRI 134 (local0.info), got: {output}");
+        assert!(
+            output.starts_with("<134>1 "),
+            "expected PRI 134 (local0.info), got: {output}"
+        );
         assert!(output.contains("test-app"), "expected app name in output");
         assert!(output.contains("ID42"), "expected msg ID with sequence");
     }

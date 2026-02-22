@@ -1,6 +1,6 @@
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use tokio::sync::broadcast;
@@ -128,10 +128,7 @@ fn print_stats(streams: &[Arc<StreamStats>], elapsed: Duration) {
         let total = stream.total_events.load(Ordering::Relaxed);
         total_recent += recent;
         total_all += total;
-        parts.push(format!(
-            "{}: {} eps ({} total)",
-            stream.name, recent, total
-        ));
+        parts.push(format!("{}: {} eps ({} total)", stream.name, recent, total));
     }
 
     let streams_str = parts.join(" | ");

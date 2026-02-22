@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::net::Ipv4Addr;
 
 use anyhow::{Context, Result};
-use fake::faker::internet::en::{IPv4, IPv6, UserAgent, Username};
 use fake::Fake;
+use fake::faker::internet::en::{IPv4, IPv6, UserAgent, Username};
 use rand::Rng;
 use tera::Tera;
 
@@ -48,7 +48,10 @@ impl TemplateFormatter {
         }
         tera_ctx.insert("sequence", &ctx.sequence);
         tera_ctx.insert("stream_name", &ctx.stream_name);
-        tera_ctx.insert("timestamp", &ctx.timestamp.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string());
+        tera_ctx.insert(
+            "timestamp",
+            &ctx.timestamp.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
+        );
 
         match self.tera.render(&self.template_name, &tera_ctx) {
             Ok(rendered) => rendered.trim_end_matches('\n').to_string(),
@@ -94,7 +97,9 @@ fn make_fake_ipv6() -> impl tera::Function {
 fn make_fake_hostname() -> impl tera::Function {
     |_args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
         let mut rng = rand::rng();
-        let prefixes = ["web", "app", "db", "srv", "gw", "fw", "proxy", "cache", "auth", "api"];
+        let prefixes = [
+            "web", "app", "db", "srv", "gw", "fw", "proxy", "cache", "auth", "api",
+        ];
         let idx = rng.random_range(0..prefixes.len());
         let num = rng.random_range(1u16..99);
         Ok(tera::Value::String(format!("{}-{num:02}", prefixes[idx])))
@@ -127,7 +132,14 @@ fn make_fake_http_method() -> impl tera::Function {
 fn make_fake_http_path() -> impl tera::Function {
     |_args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
         let mut rng = rand::rng();
-        let paths = ["/", "/api/v1/users", "/api/v1/orders", "/login", "/health", "/metrics"];
+        let paths = [
+            "/",
+            "/api/v1/users",
+            "/api/v1/orders",
+            "/login",
+            "/health",
+            "/metrics",
+        ];
         let idx = rng.random_range(0..paths.len());
         Ok(tera::Value::String(paths[idx].into()))
     }
@@ -152,7 +164,9 @@ fn make_fake_uuid() -> impl tera::Function {
             u16::from_be_bytes([bytes[4], bytes[5]]),
             u16::from_be_bytes([bytes[6], bytes[7]]) & 0x0FFF,
             (u16::from_be_bytes([bytes[8], bytes[9]]) & 0x3FFF) | 0x8000,
-            u64::from_be_bytes([0, 0, bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]]),
+            u64::from_be_bytes([
+                0, 0, bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+            ]),
         );
         Ok(tera::Value::String(uuid))
     }
@@ -160,12 +174,8 @@ fn make_fake_uuid() -> impl tera::Function {
 
 fn make_fake_int() -> impl tera::Function {
     |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
-        let min = args.get("min")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let max = args.get("max")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(65535);
+        let min = args.get("min").and_then(|v| v.as_i64()).unwrap_or(0);
+        let max = args.get("max").and_then(|v| v.as_i64()).unwrap_or(65535);
         let mut rng = rand::rng();
         let val = rng.random_range(min..=max);
         Ok(tera::Value::Number(val.into()))
@@ -175,7 +185,9 @@ fn make_fake_int() -> impl tera::Function {
 fn make_timestamp_iso() -> impl tera::Function {
     |_args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
         Ok(tera::Value::String(
-            chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
+            chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string(),
         ))
     }
 }
@@ -188,17 +200,15 @@ fn make_timestamp_epoch() -> impl tera::Function {
 
 fn make_timestamp_rfc3339() -> impl tera::Function {
     |_args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
-        Ok(tera::Value::String(
-            chrono::Utc::now().to_rfc3339()
-        ))
+        Ok(tera::Value::String(chrono::Utc::now().to_rfc3339()))
     }
 }
 
 fn make_pick() -> impl tera::Function {
     |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
-        let values_str = args.get("values")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| tera::Error::msg("pick() requires a 'values' argument (comma-separated string)"))?;
+        let values_str = args.get("values").and_then(|v| v.as_str()).ok_or_else(|| {
+            tera::Error::msg("pick() requires a 'values' argument (comma-separated string)")
+        })?;
         let options: Vec<&str> = values_str.split(',').map(|s| s.trim()).collect();
         if options.is_empty() {
             return Err(tera::Error::msg("pick() values list is empty"));
@@ -215,9 +225,8 @@ mod tests {
 
     #[test]
     fn inline_template_renders() {
-        let formatter = TemplateFormatter::from_inline(
-            "{{ timestamp }} {{ src_ip }} {{ message }}"
-        ).unwrap();
+        let formatter =
+            TemplateFormatter::from_inline("{{ timestamp }} {{ src_ip }} {{ message }}").unwrap();
         let ctx = EventContext::new("test".into(), 0);
         let output = formatter.format(&ctx);
 
@@ -238,21 +247,30 @@ mod tests {
         assert_eq!(parts.len(), 4, "expected 4 parts: {output}");
 
         // First part should be an IP
-        assert!(parts[0].parse::<Ipv4Addr>().is_ok(), "not an IP: {}", parts[0]);
+        assert!(
+            parts[0].parse::<Ipv4Addr>().is_ok(),
+            "not an IP: {}",
+            parts[0]
+        );
     }
 
     #[test]
     fn timestamp_functions_work() {
         let formatter = TemplateFormatter::from_inline(
-            "{{ timestamp_iso() }}|{{ timestamp_epoch() }}|{{ timestamp_rfc3339() }}"
-        ).unwrap();
+            "{{ timestamp_iso() }}|{{ timestamp_epoch() }}|{{ timestamp_rfc3339() }}",
+        )
+        .unwrap();
         let ctx = EventContext::new("test".into(), 0);
         let output = formatter.format(&ctx);
 
         let parts: Vec<&str> = output.split('|').collect();
         assert_eq!(parts.len(), 3);
         assert!(parts[0].contains('T'), "ISO should contain T: {}", parts[0]);
-        assert!(parts[1].parse::<i64>().is_ok(), "epoch should be numeric: {}", parts[1]);
+        assert!(
+            parts[1].parse::<i64>().is_ok(),
+            "epoch should be numeric: {}",
+            parts[1]
+        );
     }
 
     #[test]
@@ -273,13 +291,15 @@ mod tests {
 
     #[test]
     fn sequence_and_stream_name_available() {
-        let formatter = TemplateFormatter::from_inline(
-            "seq={{ sequence }} stream={{ stream_name }}"
-        ).unwrap();
+        let formatter =
+            TemplateFormatter::from_inline("seq={{ sequence }} stream={{ stream_name }}").unwrap();
         let ctx = EventContext::new("my-stream".into(), 42);
         let output = formatter.format(&ctx);
 
         assert!(output.contains("seq=42"), "missing sequence: {output}");
-        assert!(output.contains("stream=my-stream"), "missing stream_name: {output}");
+        assert!(
+            output.contains("stream=my-stream"),
+            "missing stream_name: {output}"
+        );
     }
 }

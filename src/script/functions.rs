@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
-use fake::faker::internet::en::{IPv4, IPv6, UserAgent, Username};
 use fake::Fake;
+use fake::faker::internet::en::{IPv4, IPv6, UserAgent, Username};
 use rand::Rng;
 use rhai::{Array, Engine};
 
@@ -229,9 +229,7 @@ fn register_timestamps(engine: &mut Engine) {
             .to_string()
     });
 
-    engine.register_fn("now_epoch", || -> i64 {
-        chrono::Utc::now().timestamp()
-    });
+    engine.register_fn("now_epoch", || -> i64 { chrono::Utc::now().timestamp() });
 
     engine.register_fn("now_rfc3339", || -> String {
         chrono::Utc::now().to_rfc3339()
@@ -314,7 +312,10 @@ mod tests {
         let mut engine = Engine::new();
         register_all(&mut engine);
         let result: String = engine.eval(r#"pick(["a", "b", "c"])"#).unwrap();
-        assert!(["a", "b", "c"].contains(&result.as_str()), "unexpected: {result}");
+        assert!(
+            ["a", "b", "c"].contains(&result.as_str()),
+            "unexpected: {result}"
+        );
     }
 
     #[test]

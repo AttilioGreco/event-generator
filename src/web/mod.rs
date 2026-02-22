@@ -6,23 +6,23 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use anyhow::Result;
+use axum::Json;
+use axum::Router;
 use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, Response, StatusCode};
-use axum::Json;
 use axum::response::IntoResponse;
 use axum::routing::{get, post, put};
-use axum::Router;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
 use crate::config::model::FormatConfig;
+use crate::config::model::WebConfig;
 use crate::engine::manager::{StreamManager, StreamStatus};
 use crate::format::{EventContext, build_formatter};
-use crate::config::model::WebConfig;
 
 const MAX_SAMPLES: usize = 20;
 
@@ -157,19 +157,17 @@ async fn static_handler(
                 .body(Body::from(content.data.to_vec()))
                 .unwrap()
         }
-        None => {
-            match dashboard::DashboardAssets::get("index.html") {
-                Some(index) => Response::builder()
-                    .status(StatusCode::OK)
-                    .header("Content-Type", "text/html; charset=utf-8")
-                    .body(Body::from(index.data.to_vec()))
-                    .unwrap(),
-                None => Response::builder()
-                    .status(StatusCode::NOT_FOUND)
-                    .body(Body::from("Dashboard not built"))
-                    .unwrap(),
-            }
-        }
+        None => match dashboard::DashboardAssets::get("index.html") {
+            Some(index) => Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "text/html; charset=utf-8")
+                .body(Body::from(index.data.to_vec()))
+                .unwrap(),
+            None => Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Body::from("Dashboard not built"))
+                .unwrap(),
+        },
     }
 }
 
@@ -290,10 +288,7 @@ async fn stop_stream_handler(
     }
 }
 
-async fn start_all_handler(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
+async fn start_all_handler(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
     if let Err(resp) = check_auth(&state.auth, &headers) {
         return resp;
     }
@@ -304,10 +299,7 @@ async fn start_all_handler(
     }
 }
 
-async fn stop_all_handler(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
+async fn stop_all_handler(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
     if let Err(resp) = check_auth(&state.auth, &headers) {
         return resp;
     }
@@ -418,7 +410,7 @@ async fn debug_render_handler(
         }
     };
 
-    let sample_count = req.samples.unwrap_or(1).max(1).min(MAX_SAMPLES);
+    let sample_count = req.samples.unwrap_or(1).clamp(1, MAX_SAMPLES);
     let mut output = Vec::with_capacity(sample_count);
 
     for idx in 0..sample_count {
@@ -426,7 +418,11 @@ async fn debug_render_handler(
         output.push(formatter.format(&ctx));
     }
 
-    Json(DebugRenderResponse { output, error: None }).into_response()
+    Json(DebugRenderResponse {
+        output,
+        error: None,
+    })
+    .into_response()
 }
 
 async fn script_run_handler(
@@ -458,7 +454,7 @@ async fn script_run_handler(
         }
     };
 
-    let sample_count = req.samples.unwrap_or(1).max(1).min(MAX_SAMPLES);
+    let sample_count = req.samples.unwrap_or(1).clamp(1, MAX_SAMPLES);
     let mut output = Vec::with_capacity(sample_count);
 
     for _ in 0..sample_count {
@@ -527,7 +523,10 @@ async fn handle_ws(mut socket: WebSocket, state: AppState) {
     }
 }
 
-async fn handle_ws_stream(mut socket: WebSocket, stream: std::sync::Arc<crate::stats::reporter::StreamStats>) {
+async fn handle_ws_stream(
+    mut socket: WebSocket,
+    stream: std::sync::Arc<crate::stats::reporter::StreamStats>,
+) {
     let snapshot = serde_json::json!({
         "type": "snapshot",
         "events": stream.recent_events_snapshot(),
@@ -570,10 +569,8 @@ async fn handle_ws_stream(mut socket: WebSocket, stream: std::sync::Arc<crate::s
 
 // --- Auth ---
 
-fn check_auth(
-    auth: &Option<(String, String)>,
-    headers: &HeaderMap,
-) -> Result<(), Response<Body>> {
+#[allow(clippy::result_large_err)]
+fn check_auth(auth: &Option<(String, String)>, headers: &HeaderMap) -> Result<(), Response<Body>> {
     let Some((expected_user, expected_pass)) = auth else {
         return Ok(());
     };
@@ -631,16 +628,14 @@ fn open_browser(url: &str) -> Result<()> {
 
     #[cfg(target_os = "windows")]
     {
-        Command::new("cmd")
-            .args(["/C", "start", "", url])
-            .spawn()?;
+        Command::new("cmd").args(["/C", "start", "", url]).spawn()?;
         return Ok(());
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        let has_gui = std::env::var_os("DISPLAY").is_some()
-            || std::env::var_os("WAYLAND_DISPLAY").is_some();
+        let has_gui =
+            std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some();
 
         if !has_gui {
             anyhow::bail!(
@@ -648,21 +643,19 @@ fn open_browser(url: &str) -> Result<()> {
             );
         }
 
-        if let Ok(status) = Command::new("xdg-open").arg(url).status() {
-            if status.success() {
-                return Ok(());
-            }
+        if let Ok(status) = Command::new("xdg-open").arg(url).status()
+            && status.success()
+        {
+            return Ok(());
         }
 
-        if let Ok(status) = Command::new("gio").args(["open", url]).status() {
-            if status.success() {
-                return Ok(());
-            }
+        if let Ok(status) = Command::new("gio").args(["open", url]).status()
+            && status.success()
+        {
+            return Ok(());
         }
 
-        anyhow::bail!(
-            "could not open browser with xdg-open/gio. Open manually: {url}"
-        )
+        anyhow::bail!("could not open browser with xdg-open/gio. Open manually: {url}")
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows", unix)))]
