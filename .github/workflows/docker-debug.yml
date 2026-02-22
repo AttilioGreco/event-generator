@@ -20,6 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Build dashboard
+        run: cd dashboard && bun install && bun run build
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
