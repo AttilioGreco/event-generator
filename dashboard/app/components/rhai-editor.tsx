@@ -1,3 +1,9 @@
+export function EditorSkeleton() {
+  return (
+    <div className="h-full w-full rounded-md border border-border bg-[#282c34] animate-pulse" />
+  );
+}
+
 import { javascript } from "@codemirror/lang-javascript";
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -12,17 +18,21 @@ interface RhaiEditorProps {
   onSave?: () => void;
   /** Ctrl+N – new file */
   onNew?: () => void;
+  /** Ctrl+Enter – run/send */
+  onRun?: () => void;
 }
 
-export function RhaiEditor({ value, onChange, onSave, onNew }: RhaiEditorProps) {
+export function RhaiEditor({ value, onChange, onSave, onNew, onRun }: RhaiEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | undefined>(undefined);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
   const onNewRef = useRef(onNew);
+  const onRunRef = useRef(onRun);
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
   onNewRef.current = onNew;
+  onRunRef.current = onRun;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -44,6 +54,12 @@ export function RhaiEditor({ value, onChange, onSave, onNew }: RhaiEditorProps) 
         event.preventDefault();
         event.stopPropagation();
         onNewRef.current?.();
+        return;
+      }
+      if (mod && event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        onRunRef.current?.();
       }
     };
 

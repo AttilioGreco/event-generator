@@ -4,4 +4,5 @@ export default [
   index("routes/dashboard.tsx"),
   route("config", "routes/config.tsx"),
   route("studio", "routes/studio.tsx"),
+  route("pinger", "routes/pinger.tsx"),
 ] satisfies RouteConfig;

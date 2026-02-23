@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -38,12 +39,30 @@ const navItems = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/config", label: "Config" },
   { to: "/studio", label: "Rhai Studio" },
+  { to: "/pinger", label: "Pinger" },
 ];
+
+// Shown during the initial SPA hydration (blank page phase before React loads).
+export function HydrateFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen text-muted-foreground text-sm animate-pulse">
+      Loading…
+    </div>
+  );
+}
+
+function RouteFallback() {
+  return (
+    <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm animate-pulse">
+      Loading…
+    </div>
+  );
+}
 
 export default function App() {
   return (
-    <div className="max-w-[1200px] mx-auto px-6 py-6 flex flex-col min-h-screen">
-      <header className="flex items-center justify-between mb-8 pb-4 border-b border-border">
+    <div className="w-full px-6 py-6 flex flex-col min-h-screen">
+      <header className="flex flex-col items-center gap-4 mb-8 pb-4 border-b border-border">
         <h1 className="text-xl font-semibold tracking-tight">
           <span className="text-primary">▶</span> event-generator
         </h1>
@@ -69,7 +88,14 @@ export default function App() {
       </header>
 
       <main className="flex-1 flex flex-col min-h-0">
-        <Outlet />
+        {/*
+          Suspense here catches two things:
+          1. clientLoader suspensions during route navigation
+          2. React.lazy() components that haven't loaded yet
+        */}
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <Separator className="mt-6" />

@@ -1,30 +1,46 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import { ConfigEditor } from "~/components/config-editor";
+import type { Route } from "./+types/config";
 
-export default function ConfigPage() {
-  const [config, setConfig] = useState("");
-  const [loading, setLoading] = useState(true);
+// Lazy-load ConfigEditor so the CodeMirror bundle is a separate async chunk.
+// The editor only loads when this route actually renders, not at app startup.
+const ConfigEditor = lazy(() =>
+  import("~/components/config-editor").then((m) => ({ default: m.ConfigEditor }))
+);
+
+// ── Loader ────────────────────────────────────────────────────────────────
+// clientLoader runs in parallel with the route chunk download, eliminating
+// the render-then-fetch waterfall of the old useEffect approach.
+
+export async function clientLoader(): Promise<{ config: string; loadError: string | null }> {
+  try {
+    const res = await fetch("/api/config");
+    if (!res.ok) return { config: "", loadError: `HTTP ${res.status}` };
+    return { config: await res.text(), loadError: null };
+  } catch (e) {
+    return { config: "", loadError: `Failed to load config: ${e}` };
+  }
+}
+
+// ── Editor skeleton ───────────────────────────────────────────────────────
+
+function EditorSkeleton() {
+  return (
+    <div className="h-full w-full rounded-md border border-border bg-[#282c34] animate-pulse" />
+  );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────
+
+export default function ConfigPage({ loaderData }: Route.ComponentProps) {
+  const [config, setConfig] = useState(loaderData.config);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
-  } | null>(null);
-
-  useEffect(() => {
-    fetch("/api/config")
-      .then((r) => r.text())
-      .then((text) => {
-        setConfig(text);
-        setLoading(false);
-      })
-      .catch((e) => {
-        setMessage({ type: "error", text: `Failed to load config: ${e}` });
-        setLoading(false);
-      });
-  }, []);
+  } | null>(loaderData.loadError ? { type: "error", text: loaderData.loadError } : null);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -48,14 +64,6 @@ export default function ConfigPage() {
     }
   }, [config]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-        Loading configuration…
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
       <div className="flex items-center justify-between">
@@ -72,7 +80,9 @@ export default function ConfigPage() {
       )}
 
       <div className="flex-1 min-h-0">
-        <ConfigEditor value={config} onChange={setConfig} onSave={handleSave} />
+        <Suspense fallback={<EditorSkeleton />}>
+          <ConfigEditor value={config} onChange={setConfig} onSave={handleSave} />
+        </Suspense>
       </div>
     </div>
   );

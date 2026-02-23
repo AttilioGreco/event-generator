@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRight, Download, FileText, Play, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
-import { RhaiEditor } from "~/components/rhai-editor";
+import { EditorSkeleton } from "~/components/rhai-editor";
+
+// Lazy-load the editor so the CodeMirror bundle is fetched only when
+// the user visits this route, not bundled into the app entry point.
+const RhaiEditor = lazy(() =>
+  import("~/components/rhai-editor").then((m) => ({ default: m.RhaiEditor }))
+);
 
 const LS_KEY = "rhai-studio-scripts";
 const LS_ACTIVE = "rhai-studio-active";
@@ -326,7 +332,9 @@ export default function StudioPage() {
         {/* Editor + Output */}
         <div className="flex flex-col flex-1 min-h-0 gap-3">
           <div className="flex-[2] min-h-[200px]">
-            <RhaiEditor value={code} onChange={setCode} onSave={handleSave} onNew={handleNew} />
+            <Suspense fallback={<EditorSkeleton />}>
+              <RhaiEditor value={code} onChange={setCode} onSave={handleSave} onNew={handleNew} />
+            </Suspense>
           </div>
           <div className="flex-1 flex flex-col min-h-[140px]">
             {error && <p className="text-xs text-destructive mb-2 px-1">{error}</p>}
