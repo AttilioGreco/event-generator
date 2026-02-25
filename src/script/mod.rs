@@ -14,14 +14,19 @@ impl ScriptEngine {
     pub fn from_file(path: &str, max_instructions: u32) -> Result<Self> {
         let code = std::fs::read_to_string(path)
             .with_context(|| format!("failed to read script file: {path}"))?;
-        Self::validate(&code)
-            .with_context(|| format!("failed to compile script file: {path}"))?;
-        Ok(Self { code, max_instructions })
+        Self::validate(&code).with_context(|| format!("failed to compile script file: {path}"))?;
+        Ok(Self {
+            code,
+            max_instructions,
+        })
     }
 
     pub fn from_inline(code: &str, max_instructions: u32) -> Result<Self> {
         Self::validate(code).with_context(|| "failed to compile inline script")?;
-        Ok(Self { code: code.to_string(), max_instructions })
+        Ok(Self {
+            code: code.to_string(),
+            max_instructions,
+        })
     }
 
     fn validate(code: &str) -> Result<()> {
