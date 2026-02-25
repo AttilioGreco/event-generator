@@ -4,12 +4,12 @@ import { Loader2, Maximize, Play, X } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
-import { EditorSkeleton } from "~/components/rhai-editor";
+import { EditorSkeleton } from "~/components/editor-skeleton";
 
 // Lazy-load CodeMirror so it doesn't bloat the main bundle when script
 // format is not selected.
-const RhaiEditor = lazy(() =>
-  import("~/components/rhai-editor").then((m) => ({ default: m.RhaiEditor }))
+const LuaEditor = lazy(() =>
+  import("~/components/lua-editor").then((m) => ({ default: m.LuaEditor }))
 );
 
 export interface PingResult {
@@ -19,7 +19,7 @@ export interface PingResult {
   elapsed_ms: number;
 }
 
-interface RhaiScriptFieldProps {
+interface LuaScriptFieldProps {
   value: string;
   onChange: (value: string) => void;
   /** Called when the user clicks Run or presses Ctrl+Enter */
@@ -28,13 +28,13 @@ interface RhaiScriptFieldProps {
   result: PingResult | null;
 }
 
-export function RhaiScriptField({
+export function LuaScriptField({
   value,
   onChange,
   onRun,
   loading,
   result,
-}: RhaiScriptFieldProps) {
+}: LuaScriptFieldProps) {
   const [fullscreen, setFullscreen] = useState(false);
 
   return (
@@ -42,7 +42,7 @@ export function RhaiScriptField({
       {/* Inline editor */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <Label>Script (Rhai)</Label>
+          <Label>Script (Lua)</Label>
           <Button
             variant="ghost"
             size="icon"
@@ -55,7 +55,7 @@ export function RhaiScriptField({
         </div>
         <div className="h-48">
           <Suspense fallback={<EditorSkeleton />}>
-            <RhaiEditor value={value} onChange={onChange} onRun={onRun} />
+            <LuaEditor value={value} onChange={onChange} onRun={onRun} />
           </Suspense>
         </div>
       </div>
@@ -66,7 +66,7 @@ export function RhaiScriptField({
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
             <span className="text-sm font-medium text-muted-foreground">
-              Script (Rhai)
+              Script (Lua)
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -95,7 +95,7 @@ export function RhaiScriptField({
           {/* Editor — 3/4 */}
           <div className="flex-[3] min-h-0">
             <Suspense fallback={<EditorSkeleton />}>
-              <RhaiEditor value={value} onChange={onChange} onRun={onRun} />
+              <LuaEditor value={value} onChange={onChange} onRun={onRun} />
             </Suspense>
           </div>
 

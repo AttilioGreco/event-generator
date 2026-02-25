@@ -38,7 +38,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 const navItems = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/config", label: "Config" },
-  { to: "/studio", label: "Rhai Studio" },
+  { to: "/studio", label: "Lua Studio" },
   { to: "/pinger", label: "Pinger" },
 ];
 
@@ -100,7 +100,7 @@ export default function App() {
 
       <Separator className="mt-6" />
       <footer className="pt-3 text-center text-[0.7rem] text-muted-foreground">
-        event-generator · Rust + Rhai · stats via WebSocket
+        event-generator · Rust + Lua · stats via WebSocket
       </footer>
     </div>
   );

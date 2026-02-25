@@ -5,62 +5,62 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
-import { EditorSkeleton } from "~/components/rhai-editor";
+import { EditorSkeleton } from "~/components/editor-skeleton";
 
 // Lazy-load the editor so the CodeMirror bundle is fetched only when
 // the user visits this route, not bundled into the app entry point.
-const RhaiEditor = lazy(() =>
-  import("~/components/rhai-editor").then((m) => ({ default: m.RhaiEditor }))
+const LuaEditor = lazy(() =>
+  import("~/components/lua-editor").then((m) => ({ default: m.LuaEditor }))
 );
 
-const LS_KEY = "rhai-studio-scripts";
-const LS_ACTIVE = "rhai-studio-active";
-const LS_ACTIVE_NAME = "rhai-studio-active-name";
+const LS_KEY = "lua-studio-scripts";
+const LS_ACTIVE = "lua-studio-active";
+const LS_ACTIVE_NAME = "lua-studio-active-name";
 
-const DEFAULT_SCRIPT = `// Rhai Script - each execution = one trace
-let req_id = uuid();
-let user = pick(["alice", "bob", "carol"]);
-let ip = fake_ipv4();
+const DEFAULT_SCRIPT = `-- Lua Script — each execution = one trace
+local req_id = uuid()
+local user = pick({"alice", "bob", "carol"})
+local ip = fake_ipv4()
 
-emit(now_iso() + " INFO  [req=" + req_id + "] start user=" + user + " ip=" + ip);
+emit(now_iso() .. " INFO  [req=" .. req_id .. "] start user=" .. user .. " ip=" .. ip)
 
-if weighted_bool(0.9) {
-    let elapsed = int_range(5, 120);
-    emit(now_iso() + " INFO  [req=" + req_id + "] 200 OK elapsed=" + elapsed + "ms");
-} else {
-    emit(now_iso() + " ERROR [req=" + req_id + "] 500 InternalServerError");
-    emit("java.lang.RuntimeException: " + fake_message());
-    emit("  at " + fake_java_class() + ".handle(Unknown Source)");
-}
+if weighted_bool(0.9) then
+    local elapsed = int_range(5, 120)
+    emit(now_iso() .. " INFO  [req=" .. req_id .. "] 200 OK elapsed=" .. elapsed .. "ms")
+else
+    emit(now_iso() .. " ERROR [req=" .. req_id .. "] 500 InternalServerError")
+    emit("java.lang.RuntimeException: " .. fake_message())
+    emit("  at " .. fake_java_class() .. ".handle(Unknown Source)")
+end
 
-emit(now_iso() + " INFO  [req=" + req_id + "] end");
+emit(now_iso() .. " INFO  [req=" .. req_id .. "] end")
 `;
 
 const PRESETS: { name: string; code: string }[] = [
   { name: "Java Request Trace", code: DEFAULT_SCRIPT },
   {
     name: "Simple Access Log",
-    code: `let ip = fake_ipv4();
-let method = fake_http_method();
-let path = fake_http_path();
-let status = fake_http_status();
-let ua = fake_user_agent();
-let bytes = int_range(200, 50000);
+    code: `local ip = fake_ipv4()
+local method = fake_http_method()
+local path = fake_http_path()
+local status = fake_http_status()
+local ua = fake_user_agent()
+local bytes = int_range(200, 50000)
 
-emit(ip + " - - [" + now_iso() + "] \\"" + method + " " + path + " HTTP/1.1\\" " + status + " " + bytes + " \\"-\\" \\"" + ua + "\\"");
+emit(ip .. ' - - [' .. now_iso() .. '] "' .. method .. ' ' .. path .. ' HTTP/1.1" ' .. status .. ' ' .. bytes .. ' "-" "' .. ua .. '"')
 `,
   },
   {
     name: "Firewall Events",
-    code: `let src = fake_ipv4();
-let dst = fake_ipv4();
-let action = fake_action();
-let proto = fake_protocol();
-let src_port = fake_port();
-let dst_port = pick(["80", "443", "22", "3389", "8080"]);
-let sev = fake_severity();
+    code: `local src = fake_ipv4()
+local dst = fake_ipv4()
+local action = fake_action()
+local proto = fake_protocol()
+local src_port = fake_port()
+local dst_port = pick({"80", "443", "22", "3389", "8080"})
+local sev = fake_severity()
 
-emit(now_iso() + " FW action=" + action + " proto=" + proto + " src=" + src + ":" + src_port + " dst=" + dst + ":" + dst_port + " severity=" + sev);
+emit(now_iso() .. " FW action=" .. action .. " proto=" .. proto .. " src=" .. src .. ":" .. src_port .. " dst=" .. dst .. ":" .. dst_port .. " severity=" .. sev)
 `,
   },
 ];
@@ -88,7 +88,7 @@ function downloadFile(name: string, content: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = name.endsWith(".rhai") ? name : `${name}.rhai`;
+  a.download = name.endsWith(".lua") ? name : `${name}.lua`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -184,7 +184,7 @@ export default function StudioPage() {
     }
   }, [saved, activeName]);
 
-  const tabTitle = activeName ? `${activeName}.rhai` : "untitled.rhai";
+  const tabTitle = activeName ? `${activeName}.lua` : "untitled.lua";
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-0">
@@ -192,7 +192,7 @@ export default function StudioPage() {
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
         <div className="flex items-center gap-2">
           <h2 className="text-[0.75rem] font-semibold uppercase tracking-widest text-muted-foreground">
-            Rhai Studio
+            Lua Studio
           </h2>
           <span className="text-[0.72rem] text-muted-foreground/50 font-mono">{tabTitle}</span>
         </div>
@@ -313,7 +313,7 @@ export default function StudioPage() {
                           <span className="truncate font-mono">{s.name}</span>
                         </button>
                         <div className={`flex items-center gap-0.5 shrink-0 ${activeName === s.name ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
-                          <button type="button" onClick={() => downloadFile(s.name, s.code)} title={`Download ${s.name}.rhai`} className="p-0.5 hover:text-primary cursor-pointer">
+                          <button type="button" onClick={() => downloadFile(s.name, s.code)} title={`Download ${s.name}.lua`} className="p-0.5 hover:text-primary cursor-pointer">
                             <Download size={13} />
                           </button>
                           <button type="button" onClick={() => deleteScript(s.name)} title="Delete" className="p-0.5 hover:text-destructive cursor-pointer">
@@ -333,13 +333,13 @@ export default function StudioPage() {
         <div className="flex flex-col flex-1 min-h-0 gap-3">
           <div className="flex-[2] min-h-[200px]">
             <Suspense fallback={<EditorSkeleton />}>
-              <RhaiEditor value={code} onChange={setCode} onSave={handleSave} onNew={handleNew} />
+              <LuaEditor value={code} onChange={setCode} onSave={handleSave} onNew={handleNew} onRun={runScript} />
             </Suspense>
           </div>
           <div className="flex-1 flex flex-col min-h-[140px]">
             {error && <p className="text-xs text-destructive mb-2 px-1">{error}</p>}
             <pre className="flex-1 border border-border rounded-lg bg-background text-green-400 p-3 text-[0.76rem] leading-relaxed whitespace-pre-wrap break-all overflow-auto">
-              {output || "Click ▶ Run to execute · Ctrl+S to save · Ctrl+N for new file"}
+              {output || "Click ▶ Run to execute · Ctrl+Enter to run · Ctrl+S to save · Ctrl+N for new file"}
             </pre>
           </div>
         </div>

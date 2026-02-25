@@ -1,17 +1,12 @@
-export function EditorSkeleton() {
-  return (
-    <div className="h-full w-full rounded-md border border-border bg-[#282c34] animate-pulse" />
-  );
-}
-
-import { javascript } from "@codemirror/lang-javascript";
+import { StreamLanguage } from "@codemirror/language";
+import { lua } from "@codemirror/legacy-modes/mode/lua";
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 
-interface RhaiEditorProps {
+interface LuaEditorProps {
   value: string;
   onChange: (value: string) => void;
   /** Ctrl+S – save current script */
@@ -22,7 +17,7 @@ interface RhaiEditorProps {
   onRun?: () => void;
 }
 
-export function RhaiEditor({ value, onChange, onSave, onNew, onRun }: RhaiEditorProps) {
+export function LuaEditor({ value, onChange, onSave, onNew, onRun }: LuaEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | undefined>(undefined);
   const onChangeRef = useRef(onChange);
@@ -69,7 +64,7 @@ export function RhaiEditor({ value, onChange, onSave, onNew, onRun }: RhaiEditor
       doc: value,
       extensions: [
         basicSetup,
-        javascript(),
+        StreamLanguage.define(lua),
         oneDark,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {

@@ -23,7 +23,7 @@ import {
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import { KeyValueList, type HeaderPair } from "~/components/key-value-list";
-import { RhaiScriptField, type PingResult } from "~/components/rhai-script-field";
+import { LuaScriptField, type PingResult } from "~/components/lua-script-field";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ type OutputType = "tcp" | "udp" | "http";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "pinger_config_v1";
+const STORAGE_KEY = "pinger_config_v2";
 
 const FORMAT_LABELS: Record<FormatType, string> = {
   syslog_rfc5424: "Syslog RFC 5424",
@@ -55,7 +55,7 @@ const FORMAT_LABELS: Record<FormatType, string> = {
   java_log4j: "Java Log4j",
   java_logback: "Java Logback",
   template: "Template (Tera)",
-  script: "Script (Rhai)",
+  script: "Script (Lua)",
 };
 
 const SYSLOG_FACILITIES = [
@@ -107,7 +107,7 @@ const DEFAULT_CONFIG: StoredConfig = {
   deviceEventClassId: "100",
   extraFields: [],
   templateInline: "{{ timestamp_iso() }} {{ fake_hostname() }} {{ fields.message }}\n",
-  scriptInline: 'emit(now_iso() + " INFO " + fake_hostname() + " " + fake_message());',
+  scriptInline: 'emit(now_iso() .. " INFO " .. fake_hostname() .. " " .. fake_message())',
   outputType: "tcp",
   host: "",
   port: "514",
@@ -157,7 +157,7 @@ export default function PingerPage() {
     "{{ timestamp_iso() }} {{ fake_hostname() }} {{ fields.message }}\n"
   );
   const [scriptInline, setScriptInline] = useState(
-    'emit(now_iso() + " INFO " + fake_hostname() + " " + fake_message());'
+    'emit(now_iso() .. " INFO " .. fake_hostname() .. " " .. fake_message())'
   );
 
   // Output state
@@ -421,7 +421,7 @@ export default function PingerPage() {
               )}
 
               {formatType === "script" && (
-                <RhaiScriptField
+                <LuaScriptField
                   value={scriptInline}
                   onChange={setScriptInline}
                   onRun={runTest}
