@@ -111,6 +111,7 @@ eps = 10
 # java_log4j      - Java Log4j pattern
 # java_logback    - Java Logback pattern
 # template        - Custom Tera template (template_file or template_inline)
+# script          - Lua script (script_file or script_inline)
 
 # ─── Available output types ───
 # stdout          - Print to standard output

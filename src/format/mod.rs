@@ -100,7 +100,7 @@ pub fn build_formatter(config: &FormatConfig) -> Result<LogFormatter> {
             }
         }
         "script" => {
-            let max_ops = config.max_operations.unwrap_or(10_000);
+            let max_ops = config.max_operations.unwrap_or(10_000) as u32;
             if let Some(inline) = &config.script_inline {
                 Ok(LogFormatter::Script(
                     crate::script::ScriptEngine::from_inline(inline, max_ops)?,

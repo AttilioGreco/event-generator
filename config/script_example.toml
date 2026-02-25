@@ -1,4 +1,4 @@
-# Example: Rhai scripting engine for complex log generation
+# Example: Lua scripting engine for complex log generation
 # Each script execution produces a complete trace (potentially multi-line)
 
 [[streams]]
@@ -7,7 +7,7 @@ enabled = true
 
 [streams.format]
 type = "script"
-script_file = "scripts/java_trace.rhai"
+script_file = "scripts/java_trace.lua"
 # max_operations = 10000  # optional, default 10000
 
 [streams.output]

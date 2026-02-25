@@ -64,7 +64,7 @@ pub struct FormatConfig {
     pub template_file: Option<String>,
     pub template_inline: Option<String>,
 
-    // Script options (Rhai scripting engine)
+    // Script options (Lua scripting engine)
     pub script_file: Option<String>,
     pub script_inline: Option<String>,
     pub max_operations: Option<u64>,
