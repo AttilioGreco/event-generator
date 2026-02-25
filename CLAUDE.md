@@ -102,13 +102,13 @@ Stats reporter task → stderr every 5s + WebSocket broadcast
 
 ### Formats & Outputs
 
-**9 formats:** `syslog_rfc5424`, `syslog_rfc3164`, `cef`, `leef`, `clf`, `json`, `java_log4j`, `java_logback`, `template` (Tera with 14 custom functions), `script` (Rhai)
+**9 formats:** `syslog_rfc5424`, `syslog_rfc3164`, `cef`, `leef`, `clf`, `json`, `java_log4j`, `java_logback`, `template` (Tera with 14 custom functions), `script` (Lua via mlua)
 
 **5 outputs:** `stdout`, `file`, `tcp`, `udp`, `http` (batched, configurable headers)
 
 ### Dashboard (React)
 
-Three routes: `/` (live dashboard with stream controls), `/config` (TOML editor with validate/apply), `/studio` (Rhai script preview). Built with Vite, embedded into the binary at compile time via rust-embed. `dashboard/build/` must exist before `cargo build` when web feature is used.
+Three routes: `/` (live dashboard with stream controls), `/config` (TOML editor with validate/apply), `/studio` (Lua script preview). Built with Vite, embedded into the binary at compile time via rust-embed. `dashboard/build/` must exist before `cargo build` when web feature is used.
 
 ## Critical Gotchas
 
